@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="green">#2E9E4F</color>
+    <color name="red">#D93636</color>
+    <color name="status_ok">#2E7D32</color>
+    <color name="status_wait">#F9A825</color>
+    <color name="status_error">#C62828</color>
+    <color name="status_off">#9E9E9E</color>
+    <color name="launcher_bg">#1565C0</color>
+    <!-- Верхняя панель -->
+    <color name="top_bar">#1C3B6E</color>
+    <color name="top_bar_icon">#FFFFFF</color>
+    <color name="top_bar_icon_inactive">#A9BADB</color>
+    <!-- Страницы -->
+    <color name="page_bg">#F2F5FB</color>
+    <color name="key_bg">#FFFFFF</color>
+    <color name="key_text">#1B1F27</color>
+    <color name="text_secondary">#6B7280</color>
+    <color name="divider">#E2E6EE</color>
+    <color name="call_bg">#1C3B6E</color>
+    <color name="top_bar_primary">#2B5BA8</color>
+    <color name="on_primary">#FFFFFF</color>
+    <color name="avatar_bg">#2B5BA8</color>
+</resources>

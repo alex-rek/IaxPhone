@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">IAX Phone</string>
+
+    <!-- Вкладки -->
+    <string name="tab_dialer">Звонилка</string>
+    <string name="tab_journal">Журнал</string>
+    <string name="tab_contacts">Контакты</string>
+    <string name="tab_settings">Настройки</string>
+
+    <!-- Общие -->
+    <string name="general">Общие</string>
+    <string name="theme">Тема</string>
+    <string name="theme_system">Как в системе</string>
+    <string name="theme_light">Светлая</string>
+    <string name="theme_dark">Тёмная</string>
+    <string name="theme_hint">«Как в системе» — тема переключается вместе с настройками Android.</string>
+
+    <!-- Подключение -->
+    <string name="connection">Подключение</string>
+    <string name="server">Сервер</string>
+    <string name="port">Порт</string>
+    <string name="username">Логин</string>
+    <string name="password">Пароль</string>
+    <string name="caller_id">Мой номер / имя (необязательно)</string>
+    <string name="connect">Подключиться</string>
+    <string name="disconnect">Отключиться</string>
+    <string name="required">Обязательное поле</string>
+    <string name="connection_hint">Учётная запись IAX2 на сервере (например, Asterisk). Подключение сохраняется и восстанавливается при следующем запуске.</string>
+    <string name="not_configured">Не настроено — нажмите, чтобы подключиться</string>
+
+    <!-- Логи -->
+    <string name="logs">Логи</string>
+    <string name="logs_summary">Журнал протокола IAX2</string>
+    <string name="log_empty">Пока пусто</string>
+    <string name="copy">Копировать</string>
+    <string name="clear">Очистить</string>
+    <string name="copied">Скопировано</string>
+
+    <!-- Звонилка -->
+    <string name="number_hint">Номер</string>
+    <string name="backspace">Стереть</string>
+    <string name="call">Позвонить</string>
+    <string name="answer">Ответить</string>
+    <string name="decline">Отклонить</string>
+    <string name="hangup">Завершить</string>
+    <string name="mute">Микрофон</string>
+    <string name="speaker">Динамик</string>
+    <string name="keypad">Клавиатура</string>
+    <string name="not_connected">Нет подключения к серверу</string>
+    <string name="setup">Настроить</string>
+    <string name="need_mic">Нужен доступ к микрофону</string>
+    <string name="incoming_call">Входящий вызов</string>
+
+    <!-- Состояния вызова -->
+    <string name="state_dialing">Вызов…</string>
+    <string name="state_ringing">Звонит у абонента…</string>
+    <string name="state_incoming">Входящий вызов</string>
+    <string name="state_active">%1$d:%2$02d · %3$s</string>
+    <string name="state_ended">Вызов завершён · %1$s</string>
+
+    <!-- Журнал -->
+    <string name="journal_empty">Звонков пока не было</string>
+    <string name="journal_recent">Недавние</string>
+    <string name="journal_missed">Пропущенный</string>
+    <string name="journal_not_answered">Без ответа</string>
+    <string name="to_dialer">В набор номера</string>
+    <string name="add_to_contacts">Добавить в контакты</string>
+    <string name="delete">Удалить</string>
+    <string name="clear_journal_q">Очистить журнал звонков?</string>
+    <string name="cancel">Отмена</string>
+
+    <!-- Контакты -->
+    <string name="contacts_empty">Контактов нет.\nНажмите «+», чтобы добавить.</string>
+    <string name="contact_add">Новый контакт</string>
+    <string name="contact_edit">Изменить контакт</string>
+    <string name="contact_name">Имя</string>
+    <string name="contact_number">Номер</string>
+    <string name="save">Сохранить</string>
+    <string name="edit">Изменить</string>
+    <string name="delete_contact_q">Удалить контакт «%1$s»?</string>
+
+    <!-- Уведомления -->
+    <string name="channel_status">Состояние подключения</string>
+    <string name="channel_calls">Входящие вызовы</string>
+    <string name="notif_registered">Зарегистрирован, ожидание вызовов</string>
+    <string name="notif_in_call">Разговор: %1$s</string>
+    <string name="notif_incoming">Входящий: %1$s</string>
+    <string name="notif_dialing">Вызов: %1$s</string>
+</resources>

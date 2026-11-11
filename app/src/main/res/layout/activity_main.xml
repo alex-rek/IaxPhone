@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/page_bg">
+
+    <LinearLayout
+        android:id="@+id/main"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <!-- Верхняя панель: Звонилка / Журнал / Контакты / Настройки -->
+        <com.google.android.material.tabs.TabLayout
+            android:id="@+id/tabs"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@color/top_bar"
+            app:tabGravity="fill"
+            app:tabIconTint="@color/tab_icon"
+            app:tabIndicatorColor="@color/top_bar_icon"
+            app:tabIndicatorFullWidth="false"
+            app:tabMaxWidth="0dp"
+            app:tabMode="fixed"
+            app:tabRippleColor="#33FFFFFF" />
+
+        <FrameLayout
+            android:id="@+id/pages"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1">
+
+            <include android:id="@+id/pageDialer" layout="@layout/page_dialer" />
+            <include android:id="@+id/pageJournal" layout="@layout/page_journal" android:visibility="gone" />
+            <include android:id="@+id/pageContacts" layout="@layout/page_contacts" android:visibility="gone" />
+            <include android:id="@+id/pageSettings" layout="@layout/page_settings" android:visibility="gone" />
+        </FrameLayout>
+    </LinearLayout>
+
+    <!-- Экран разговора поверх вкладок -->
+    <include android:id="@+id/callPanel" layout="@layout/call_panel" android:visibility="gone" />
+</FrameLayout>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="top_bar">#16294A</color>
+    <color name="page_bg">#111418</color>
+    <color name="key_bg">#232830</color>
+    <color name="key_text">#E8EAF0</color>
+    <color name="text_secondary">#9AA3B2</color>
+    <color name="divider">#2A3039</color>
+    <color name="call_bg">#16294A</color>
+    <color name="top_bar_primary">#9DB8F0</color>
+    <color name="on_primary">#0B1F44</color>
+    <color name="avatar_bg">#3A64A8</color>
+</resources>

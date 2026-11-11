@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Клавиатура 4×3; используется на «Звонилке» и на экране разговора (DTMF). -->
+<GridLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:columnCount="3"
+    android:paddingStart="32dp"
+    android:paddingEnd="32dp"
+    android:useDefaultMargins="false">
+
+    <com.google.android.material.button.MaterialButton android:id="@+id/k1" style="@style/DialKey" android:text="1" />
+    <com.google.android.material.button.MaterialButton android:id="@+id/k2" style="@style/DialKey" android:text="2" />
+    <com.google.android.material.button.MaterialButton android:id="@+id/k3" style="@style/DialKey" android:text="3" />
+    <com.google.android.material.button.MaterialButton android:id="@+id/k4" style="@style/DialKey" android:text="4" />
+    <com.google.android.material.button.MaterialButton android:id="@+id/k5" style="@style/DialKey" android:text="5" />
+    <com.google.android.material.button.MaterialButton android:id="@+id/k6" style="@style/DialKey" android:text="6" />
+    <com.google.android.material.button.MaterialButton android:id="@+id/k7" style="@style/DialKey" android:text="7" />
+    <com.google.android.material.button.MaterialButton android:id="@+id/k8" style="@style/DialKey" android:text="8" />
+    <com.google.android.material.button.MaterialButton android:id="@+id/k9" style="@style/DialKey" android:text="9" />
+    <com.google.android.material.button.MaterialButton android:id="@+id/kStar" style="@style/DialKey" android:text="*" />
+    <com.google.android.material.button.MaterialButton android:id="@+id/k0" style="@style/DialKey" android:text="0" />
+    <com.google.android.material.button.MaterialButton android:id="@+id/kHash" style="@style/DialKey" android:text="#" />
+</GridLayout>

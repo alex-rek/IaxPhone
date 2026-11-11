@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.IaxPhone" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/top_bar_primary</item>
+        <item name="colorOnPrimary">@color/on_primary</item>
+        <item name="colorSecondaryContainer">@color/key_bg</item>
+        <item name="android:windowBackground">@color/page_bg</item>
+    </style>
+
+    <!-- Круглая клавиша набора -->
+    <style name="DialKey" parent="Widget.Material3.Button.UnelevatedButton">
+        <item name="android:layout_width">72dp</item>
+        <item name="android:layout_height">72dp</item>
+        <item name="android:layout_columnWeight">1</item>
+        <item name="android:layout_gravity">center</item>
+        <item name="android:layout_marginTop">6dp</item>
+        <item name="android:layout_marginBottom">6dp</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+        <item name="android:padding">0dp</item>
+        <item name="android:textSize">28sp</item>
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textColor">@color/key_text</item>
+        <item name="backgroundTint">@color/key_bg</item>
+        <item name="cornerRadius">36dp</item>
+        <item name="rippleColor">@color/divider</item>
+    </style>
+
+    <!-- Круглая кнопка управления на экране разговора -->
+    <style name="CallControl" parent="Widget.Material3.Button.IconButton.Outlined">
+        <item name="android:layout_width">64dp</item>
+        <item name="android:layout_height">64dp</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+        <item name="iconSize">28dp</item>
+        <item name="iconTint">@color/call_control_fg</item>
+        <item name="backgroundTint">@color/call_control_bg</item>
+        <item name="strokeColor">#80FFFFFF</item>
+        <item name="cornerRadius">32dp</item>
+    </style>
+
+    <style name="CallControlLabel">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">6dp</item>
+        <item name="android:textColor">#CCFFFFFF</item>
+        <item name="android:textSize">13sp</item>
+    </style>
+
+    <style name="TopBarOverlay" parent="ThemeOverlay.Material3.Dark.ActionBar" />
+</resources>
