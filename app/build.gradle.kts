@@ -1,5 +1,16 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
+}
+
+// Ключ подписи хранится вне репозитория. Путь к файлу настроек можно переопределить
+// свойством -Piaxphone.signing=...; по умолчанию ~/.android-keys/iaxphone-release.properties.
+val signingProps = Properties().apply {
+    val path = (findProperty("iaxphone.signing") as String?)
+        ?: "${System.getProperty("user.home")}/.android-keys/iaxphone-release.properties"
+    val f = file(path)
+    if (f.exists()) f.inputStream().use { load(it) }
 }
 
 android {
@@ -11,12 +22,25 @@ android {
         minSdk = 26
         targetSdk = 36
         versionCode = 1
-        versionName = "0.1"
+        versionName = "0.1.0"
+    }
+
+    signingConfigs {
+        if (signingProps.isNotEmpty()) {
+            create("release") {
+                storeFile = file(signingProps.getProperty("storeFile"))
+                storePassword = signingProps.getProperty("storePassword")
+                keyAlias = signingProps.getProperty("keyAlias")
+                keyPassword = signingProps.getProperty("keyPassword")
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            // Без файла с ключом release-APK собирается неподписанным.
+            signingConfigs.findByName("release")?.let { signingConfig = it }
         }
     }
 

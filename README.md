@@ -18,12 +18,19 @@
 
 Во время вызова поверх вкладок открывается экран разговора: имя/номер, таймер и кодек, кнопки «Микрофон», «Клавиатура» (DTMF), «Динамик», «Ответить» / «Завершить».
 
+## Установка
+Готовый APK — на странице [Releases](https://github.com/alex-rek/IaxPhone/releases): скачайте `IaxPhone-<версия>.apk` на телефон и установите (Android 8.0+, потребуется разрешить установку из неизвестных источников).
+
 ## Сборка
 ```
 gradlew assembleDebug          # APK: app/build/outputs/apk/debug/app-debug.apk
 gradlew testDebugUnitTest      # тесты, включая интеграционный с tools/iax_test_server.py
 ```
 Требуется Android Studio (JDK из `jbr`), SDK 36. minSdk 26 (Android 8).
+
+Release-сборка (`gradlew assembleRelease`) подписывается ключом из `~/.android-keys/iaxphone-release.properties`
+(поля `storeFile`, `storePassword`, `keyAlias`, `keyPassword`; другой путь — `-Piaxphone.signing=...`).
+Без этого файла release-APK собирается неподписанным.
 
 ## Структура
 - `app/src/main/java/com/glaude/iaxphone/iax/` — стек IAX2 на чистом Kotlin (можно вынести в отдельную библиотеку).
