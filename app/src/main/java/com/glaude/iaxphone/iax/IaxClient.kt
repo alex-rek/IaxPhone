@@ -22,7 +22,7 @@ data class IaxConfig(
     /** Желаемый период перерегистрации, секунд. */
     val refresh: Int = 60,
     /** Кодеки в порядке предпочтения. */
-    val codecs: List<Long> = listOf(Codec.ULAW, Codec.ALAW),
+    val codecs: List<Long> = Codecs.SUPPORTED,
     val localPort: Int = 0,
     /** Регистрироваться на сервере (для приёма входящих). */
     val register: Boolean = true,
@@ -317,7 +317,7 @@ class IaxClient(
                     sendFull(s, FrameType.IAX, IaxCmd.AUTHREP.toLong(), IeBuilder().raw(auth.first, auth.second).build())
                 }
                 IaxCmd.ACCEPT -> {
-                    val fmt = f.ies.format()?.takeIf { G711.isSupported(it) }
+                    val fmt = f.ies.format()?.takeIf { it in config.codecs }
                         ?: chooseFormat(null, f.ies.capability()) ?: config.codecs.first()
                     call.format = fmt
                     log("Кодек: ${Codec.name(fmt)}")
@@ -458,6 +458,16 @@ class IaxClient(
         }
         val s = sessions[f.dstCall] ?: return
         if (f.isIax(IaxCmd.CALLTOKEN)) { onCallToken(s, f); return }
+        if (s.remoteCallNo != 0 && f.srcCall != s.remoteCallNo) {
+            // Сервер принял повтор нашего первого запроса за новый вызов и завёл лишнюю сессию:
+            // сбрасываем её, иначе она висит на сервере до тайм-аута.
+            if (!f.isIax(IaxCmd.ACK) && !f.isIax(IaxCmd.INVAL)) {
+                log("<< лишняя сессия сервера #${f.srcCall} (${f.describe()}) — сбрасываем")
+                send(FullFrame(s.callNo, f.srcCall, false, f.timestamp, 0, (f.oseq + 1) and 0xff,
+                    FrameType.IAX, IaxCmd.INVAL.toLong()).encode())
+            }
+            return
+        }
         if (f.type != FrameType.VOICE) log("<< " + f.describe())
         if (s.remoteCallNo == 0) s.remoteCallNo = f.srcCall
         ackUpTo(s, f.iseq)

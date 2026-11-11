@@ -23,12 +23,16 @@ class IaxClientIntegrationTest {
     private val serverLog = CopyOnWriteArrayList<String>()
 
     @Before
-    fun startServer() {
+    fun startDefaultServer() = startServer("ulaw,alaw")
+
+    private fun startServer(codecs: String) {
+        server?.destroy()
+        serverLog.clear()
         val script = listOf(File("../tools/iax_test_server.py"), File("tools/iax_test_server.py")).firstOrNull { it.exists() }
         assumeTrue("нет tools/iax_test_server.py", script != null)
         port = DatagramSocket(0).use { it.localPort }
         val pb = ProcessBuilder("python", "-u", script!!.path, "--host", "127.0.0.1", "--port", "$port",
-            "--user", "100:secret", "--user", "200:other").redirectErrorStream(true)
+            "--user", "100:secret", "--user", "200:other", "--codecs", codecs).redirectErrorStream(true)
         pb.environment()["PYTHONIOENCODING"] = "utf-8"
         val p = try { pb.start() } catch (e: Exception) { null }
         assumeTrue("python недоступен", p != null)
@@ -82,13 +86,14 @@ class IaxClientIntegrationTest {
         }
     }
 
-    private fun client(rec: Recorder, user: String = "100", pass: String = "secret") =
-        IaxClient(IaxConfig(host = "127.0.0.1", port = port, username = user, password = pass), rec).also { it.start() }
+    private fun client(rec: Recorder, user: String = "100", pass: String = "secret", codecs: List<Long> = Codecs.SUPPORTED) =
+        IaxClient(IaxConfig(host = "127.0.0.1", port = port, username = user, password = pass, codecs = codecs), rec)
+            .also { it.start() }
 
     private fun sendVoiceFor(c: IaxClient, call: IaxCall, ms: Int) {
         val pcm = ShortArray(160) { (8000 * kotlin.math.sin(it * 2 * Math.PI * 300 / 8000)).toInt().toShort() }
-        val frame = G711.encode(call.format, pcm)
-        repeat(ms / 20) { c.sendVoice(call, frame); Thread.sleep(20) }
+        val codec = Codecs.create(call.format)
+        repeat(ms / 20) { c.sendVoice(call, codec.encode(pcm)); Thread.sleep(20) }
     }
 
     @Test
@@ -163,6 +168,38 @@ class IaxClientIntegrationTest {
         assertTrue("тон не тишина", pcm.any { kotlin.math.abs(it.toInt()) > 4000 })
         c.hangup(call)
         assertTrue(rec.awaitState(call, CallState.ENDED))
+        c.stop()
+    }
+
+    @Test
+    fun gsmOnlyServerNegotiatesGsm() {
+        startServer("gsm")
+        val rec = Recorder()
+        val c = client(rec)
+        assertTrue(rec.awaitReg(RegState.REGISTERED))
+        val echo = c.call("600")
+        assertTrue("эхо ответило", rec.awaitState(echo, CallState.ACTIVE))
+        assertEquals(Codec.GSM, echo.format)
+        sendVoiceFor(c, echo, 600)
+        Thread.sleep(300)
+        assertTrue("эхо GSM: ${rec.voiceFrames}", rec.voiceFrames >= 20)
+        assertEquals(Gsm.FRAME_BYTES, rec.lastVoice!!.size)
+        val pcm = Codecs.create(Codec.GSM).decode(rec.lastVoice!!)
+        assertEquals(Gsm.FRAME_SAMPLES, pcm.size)
+        c.hangup(echo)
+        assertTrue(rec.awaitState(echo, CallState.ENDED))
+        c.stop()
+    }
+
+    @Test
+    fun noCommonCodecIsRejectedLikeAsterisk() {
+        startServer("gsm")
+        val rec = Recorder()
+        val c = client(rec, codecs = listOf(Codec.ULAW, Codec.ALAW))
+        assertTrue(rec.awaitReg(RegState.REGISTERED))
+        val call = c.call("600")
+        assertTrue(rec.awaitState(call, CallState.ENDED))
+        assertTrue(call.endReason!!, call.endReason!!.contains("Unable to negotiate codec"))
         c.stop()
     }
 }

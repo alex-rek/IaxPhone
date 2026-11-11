@@ -2,7 +2,10 @@
 """
 Минимальный IAX2-сервер для проверки клиента без Asterisk.
 
-  python iax_test_server.py --port 4569 --user 100:secret
+  python iax_test_server.py --port 4569 --user 100:secret [--codecs ulaw,alaw,gsm]
+
+--codecs задаёт разрешённые кодеки (по умолчанию ulaw,alaw). Если общих с клиентом нет,
+вызов отклоняется после авторизации с "Unable to negotiate codec", как в Asterisk.
 
 Номера:
   600  эхо (возвращает ваш голос)
@@ -36,7 +39,8 @@ NO_ACK_SEQ = {ACK}
 IE_CALLED_NUMBER, IE_CALLING_NUMBER, IE_CALLING_NAME, IE_USERNAME = 0x01, 0x02, 0x04, 0x06
 IE_CAPABILITY, IE_FORMAT, IE_VERSION, IE_AUTHMETHODS, IE_CHALLENGE = 0x08, 0x09, 0x0b, 0x0e, 0x0f
 IE_MD5_RESULT, IE_REFRESH, IE_CAUSE, IE_CAUSECODE, IE_CALLTOKEN = 0x10, 0x13, 0x16, 0x2a, 0x36
-ULAW, ALAW = 0x4, 0x8
+GSM, ULAW, ALAW = 0x2, 0x4, 0x8
+CODEC_NAMES = {"gsm": GSM, "ulaw": ULAW, "alaw": ALAW}
 
 IAX_NAMES = {NEW: "NEW", PING: "PING", PONG: "PONG", ACK: "ACK", HANGUP: "HANGUP", REJECT: "REJECT",
              ACCEPT: "ACCEPT", AUTHREQ: "AUTHREQ", AUTHREP: "AUTHREP", INVAL: "INVAL", LAGRQ: "LAGRQ",
@@ -127,7 +131,8 @@ class Call:
 
 
 class Server:
-    def __init__(self, host, port, users):
+    def __init__(self, host, port, users, codecs=(ULAW, ALAW)):
+        self.codecs = list(codecs)            # разрешённые, в порядке предпочтения
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind((host, port))
         self.users = users
@@ -136,7 +141,9 @@ class Server:
         self.secret = random.getrandbits(64)
         self.cmds = queue.Queue()
         self.last_poke = time.monotonic()
-        log(f"IAX2 тестовый сервер слушает {host}:{port}, пользователи: {', '.join(users)}")
+        names = {v: k for k, v in CODEC_NAMES.items()}
+        log(f"IAX2 тестовый сервер слушает {host}:{port}, пользователи: {', '.join(users)}, "
+            f"кодеки: {', '.join(names[x] for x in self.codecs)}")
 
     # -------------------------------------------------------------- utils
     def alloc_callno(self):
@@ -272,7 +279,8 @@ class Server:
             c.ext = (ies.get(IE_CALLED_NUMBER) or b"").decode()
             cap = struct.unpack(">I", ies[IE_CAPABILITY])[0] if IE_CAPABILITY in ies else ULAW
             fmt = struct.unpack(">I", ies[IE_FORMAT])[0] if IE_FORMAT in ies else 0
-            c.fmt = fmt if fmt in (ULAW, ALAW) else (ULAW if cap & ULAW else ALAW)
+            # Как Asterisk: предпочтительный формат клиента, иначе первый общий из наших.
+            c.fmt = fmt if fmt in self.codecs else next((x for x in self.codecs if cap & x), 0)
             self.send_full(c, IAX, AUTHREQ, ie16(IE_AUTHMETHODS, 2) + ie(IE_CHALLENGE, c.challenge) + ie(IE_USERNAME, user))
         else:
             self.send_full(c, IAX, REGAUTH, ie16(IE_AUTHMETHODS, 2) + ie(IE_CHALLENGE, c.challenge) + ie(IE_USERNAME, user))
@@ -302,6 +310,11 @@ class Server:
             elif sub == AUTHREP and c.kind == "in":
                 if not self.check_md5(c, ies):
                     self.send_full(c, IAX, REJECT, ie(IE_CAUSE, "Authentication failed"))
+                    self.close(c)
+                    return
+                if not c.fmt:
+                    log(f"** нет общего кодека с {c.user}")
+                    self.send_full(c, IAX, REJECT, ie(IE_CAUSE, "Unable to negotiate codec") + ie(IE_CAUSECODE, b":"))
                     self.close(c)
                     return
                 self.route(c)
@@ -377,7 +390,7 @@ class Server:
         c.user = user
         log(f"** звоню {user} на {addr}")
         self.send_full(c, IAX, NEW, ie16(IE_VERSION, 2) + ie(IE_CALLED_NUMBER, user) + ie(IE_CALLING_NUMBER, "800")
-                       + ie(IE_CALLING_NAME, "Test server") + ie32(IE_CAPABILITY, ULAW | ALAW) + ie32(IE_FORMAT, ULAW)
+                       + ie(IE_CALLING_NAME, "Test server") + ie32(IE_CAPABILITY, sum(self.codecs)) + ie32(IE_FORMAT, self.codecs[0])
                        + ie(IE_CALLTOKEN, b""))
 
     def on_voice(self, c, payload):
@@ -423,7 +436,7 @@ class Server:
                     data = bytearray(p[1])
                     data[2] |= 0x80
                     self.raw_send(bytes(data), c.addr)
-            if c.answered and c.mode == "tone" and c.callno in self.calls:
+            if c.answered and c.mode == "tone" and c.callno in self.calls and c.fmt in (ULAW, ALAW):
                 while (c.voice_ts + 20) <= (now - c.start) * 1000:
                     samples = []
                     for _ in range(160):
@@ -479,10 +492,12 @@ def main():
     ap.add_argument("--host", default="0.0.0.0")
     ap.add_argument("--port", type=int, default=4569)
     ap.add_argument("--user", action="append", default=[], help="логин:пароль, можно несколько раз")
+    ap.add_argument("--codecs", default="ulaw,alaw", help="разрешённые кодеки: ulaw, alaw, gsm")
     args = ap.parse_args()
     users = dict(u.split(":", 1) for u in (args.user or ["100:secret"]))
+    codecs = [CODEC_NAMES[x.strip().lower()] for x in args.codecs.split(",") if x.strip()]
     try:
-        Server(args.host, args.port, users).run()
+        Server(args.host, args.port, users, codecs).run()
     except (KeyboardInterrupt, SystemExit):
         pass
 

@@ -16,6 +16,24 @@
     <string name="theme_dark">Тёмная</string>
     <string name="theme_hint">«Как в системе» — тема переключается вместе с настройками Android.</string>
 
+    <!-- Обновления -->
+    <string name="updates">Обновления</string>
+    <string name="app_version">Версия %1$s</string>
+    <string name="update_auto">Проверять при запуске</string>
+    <string name="update_check">Проверить обновления</string>
+    <string name="update_checking">Проверка…</string>
+    <string name="update_latest">Установлена последняя версия</string>
+    <string name="update_available">Доступна версия %1$s</string>
+    <string name="update_current">Сейчас установлена %1$s.</string>
+    <string name="update">Обновить</string>
+    <string name="later">Позже</string>
+    <string name="update_title">Загрузка версии %1$s</string>
+    <string name="update_downloading">Загрузка…</string>
+    <string name="update_progress">Загружено %1$d%%</string>
+    <string name="update_error">Не удалось обновить</string>
+    <string name="update_allow_install">Чтобы установить обновление, разрешите приложению IAX Phone устанавливать приложения, затем вернитесь назад.</string>
+    <string name="update_open_settings">Открыть настройки</string>
+
     <!-- Подключение -->
     <string name="connection">Подключение</string>
     <string name="server">Сервер</string>

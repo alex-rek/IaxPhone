@@ -53,6 +53,7 @@ class MainActivity : AppCompatActivity(), Phone.Observer {
     private var shownCall: IaxCall? = null
     private var shownCallName = ""
 
+    private lateinit var updateUi: UpdateUi
     private val journalAdapter = JournalAdapter()
     private val contactsAdapter = ContactsAdapter()
 
@@ -100,6 +101,14 @@ class MainActivity : AppCompatActivity(), Phone.Observer {
         setupCallPanel()
 
         requestPermissionsIfNeeded()
+        updateUi = UpdateUi(this)
+        if (savedInstanceState == null && Updater.autoCheckDue(this)) {
+            // Тихая проверка: сообщаем только о найденной версии, ошибки сети не показываем.
+            Updater.check(this) { res ->
+                val info = res.getOrNull() ?: return@check
+                if (!isFinishing && !isDestroyed && Phone.call == null) updateUi.showAvailable(info)
+            }
+        }
         if (savedInstanceState == null && !Phone.connected && Account.autoConnect(this) && Account.load(this).isComplete) {
             SoftphoneService.start(this)
         }
@@ -117,6 +126,11 @@ class MainActivity : AppCompatActivity(), Phone.Observer {
         render()
         refreshLists()
         b.root.post(ticker)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        updateUi.onResume()
     }
 
     override fun onStop() {

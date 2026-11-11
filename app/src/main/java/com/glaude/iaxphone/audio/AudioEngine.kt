@@ -14,7 +14,8 @@ import android.media.audiofx.NoiseSuppressor
 import android.os.Build
 import android.os.Process
 import android.util.Log
-import com.glaude.iaxphone.iax.G711
+import com.glaude.iaxphone.iax.Codecs
+import com.glaude.iaxphone.iax.VoiceCodec
 import java.util.TreeMap
 
 /**
@@ -25,7 +26,9 @@ class AudioEngine(context: Context) {
 
     @Volatile private var running = false
     @Volatile var muted = false
-    private var format = 0L
+    private var txCodec: VoiceCodec? = null
+    /** Декодеры по форматам входящего голоса (используются только из потока iax-loop). */
+    private val rxCodecs = HashMap<Long, VoiceCodec>()
     private var recordThread: Thread? = null
     private var playThread: Thread? = null
 
@@ -36,7 +39,9 @@ class AudioEngine(context: Context) {
     @SuppressLint("MissingPermission")
     fun start(format: Long, onFrame: (ByteArray) -> Unit) {
         if (running) return
-        this.format = format
+        if (!Codecs.isSupported(format)) { Log.e(TAG, "Кодек не поддерживается: $format"); return }
+        txCodec = Codecs.create(format)
+        synchronized(rxCodecs) { rxCodecs.clear() }
         running = true
         synchronized(jitter) { jitter.clear(); lastPlayedTs = -1 }
         audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
@@ -57,8 +62,10 @@ class AudioEngine(context: Context) {
     }
 
     fun onIncoming(timestamp: Long, format: Long, payload: ByteArray) {
-        if (!running || !G711.isSupported(format)) return
-        val pcm = G711.decode(format, payload)
+        if (!running || !Codecs.isSupported(format)) return
+        val codec = synchronized(rxCodecs) { rxCodecs.getOrPut(format) { Codecs.create(format) } }
+        val pcm = try { codec.decode(payload) } catch (e: Exception) { Log.w(TAG, "decode", e); return }
+        if (pcm.isEmpty()) return
         synchronized(jitter) {
             if (timestamp <= lastPlayedTs) return // опоздавший кадр
             jitter[timestamp] = pcm
@@ -84,6 +91,7 @@ class AudioEngine(context: Context) {
     @SuppressLint("MissingPermission")
     private fun recordLoop(onFrame: (ByteArray) -> Unit) {
         Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO)
+        val codec = txCodec ?: return
         val minBuf = AudioRecord.getMinBufferSize(RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
         val rec = try {
             AudioRecord(MediaRecorder.AudioSource.VOICE_COMMUNICATION, RATE, AudioFormat.CHANNEL_IN_MONO,
@@ -106,7 +114,7 @@ class AudioEngine(context: Context) {
                     got += n
                 }
                 if (got < FRAME) continue
-                onFrame(G711.encode(format, if (muted) silence else buf))
+                onFrame(codec.encode(if (muted) silence else buf))
             }
         } catch (e: Exception) {
             Log.e(TAG, "record", e)
