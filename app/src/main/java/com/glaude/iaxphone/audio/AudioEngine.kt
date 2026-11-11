@@ -14,6 +14,8 @@ import android.media.audiofx.NoiseSuppressor
 import android.os.Build
 import android.os.Process
 import android.util.Log
+import android.media.audiofx.AutomaticGainControl
+import com.glaude.iaxphone.AudioPrefs
 import com.glaude.iaxphone.iax.Codecs
 import com.glaude.iaxphone.iax.VoiceCodec
 import java.util.TreeMap
@@ -66,9 +68,10 @@ class AudioEngine(context: Context) {
         val codec = synchronized(rxCodecs) { rxCodecs.getOrPut(format) { Codecs.create(format) } }
         val pcm = try { codec.decode(payload) } catch (e: Exception) { Log.w(TAG, "decode", e); return }
         if (pcm.isEmpty()) return
+        val out = AudioPrefs.applyGain(pcm, AudioPrefs.speakerGain)
         synchronized(jitter) {
             if (timestamp <= lastPlayedTs) return // опоздавший кадр
-            jitter[timestamp] = pcm
+            jitter[timestamp] = out
             while (jitter.size > MAX_JITTER_FRAMES) jitter.pollFirstEntry()
         }
     }
@@ -100,8 +103,13 @@ class AudioEngine(context: Context) {
             Log.e(TAG, "AudioRecord", e); return
         }
         if (rec.state != AudioRecord.STATE_INITIALIZED) { Log.e(TAG, "AudioRecord не инициализирован"); rec.release(); return }
-        val aec = if (AcousticEchoCanceler.isAvailable()) AcousticEchoCanceler.create(rec.audioSessionId)?.apply { enabled = true } else null
-        val ns = if (NoiseSuppressor.isAvailable()) NoiseSuppressor.create(rec.audioSessionId)?.apply { enabled = true } else null
+        // Встроенные эффекты Android — по настройкам «Аудио»; применяются к следующему вызову.
+        val aec = if (AudioPrefs.echoCancel && AcousticEchoCanceler.isAvailable())
+            AcousticEchoCanceler.create(rec.audioSessionId)?.apply { enabled = true } else null
+        val ns = if (AudioPrefs.noiseSuppress && NoiseSuppressor.isAvailable())
+            NoiseSuppressor.create(rec.audioSessionId)?.apply { enabled = true } else null
+        val agc = if (AudioPrefs.autoGain && AutomaticGainControl.isAvailable())
+            AutomaticGainControl.create(rec.audioSessionId)?.apply { enabled = true } else null
         val buf = ShortArray(FRAME)
         val silence = ShortArray(FRAME)
         try {
@@ -114,13 +122,13 @@ class AudioEngine(context: Context) {
                     got += n
                 }
                 if (got < FRAME) continue
-                onFrame(codec.encode(if (muted) silence else buf))
+                onFrame(codec.encode(if (muted) silence else AudioPrefs.applyGain(buf, AudioPrefs.micGain)))
             }
         } catch (e: Exception) {
             Log.e(TAG, "record", e)
         } finally {
             try { rec.stop() } catch (_: Exception) { }
-            aec?.release(); ns?.release()
+            aec?.release(); ns?.release(); agc?.release()
             rec.release()
         }
     }

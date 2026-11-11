@@ -7,6 +7,7 @@ import android.content.res.ColorStateList
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.format.DateUtils
@@ -54,6 +55,8 @@ class MainActivity : AppCompatActivity(), Phone.Observer {
     private var shownCallName = ""
 
     private lateinit var updateUi: UpdateUi
+    /** Гасит экран у уха во время разговора (датчик приближения). */
+    private var proximityLock: PowerManager.WakeLock? = null
     private val journalAdapter = JournalAdapter()
     private val contactsAdapter = ContactsAdapter()
 
@@ -134,6 +137,7 @@ class MainActivity : AppCompatActivity(), Phone.Observer {
     }
 
     override fun onStop() {
+        setProximity(false)
         Phone.removeObserver(this)
         b.root.removeCallbacks(ticker)
         super.onStop()
@@ -186,7 +190,7 @@ class MainActivity : AppCompatActivity(), Phone.Observer {
         val d = b.pageDialer
         d.number.showSoftInputOnFocus = false
         d.keypad.k0.text = keyLabel("0", "+")
-        forEachKey(d.keypad) { key, c -> key.setOnClickListener { insertDigit(c) } }
+        forEachKey(d.keypad) { key, c -> key.setOnClickListener { KeyFeedback.onKey(this, c, inCall = false); insertDigit(c) } }
         d.keypad.k0.setOnLongClickListener { insertDigit('+'); true }
         // Долгое нажатие «1» — голосовая почта, как в обычной звонилке.
         d.keypad.k1.setOnLongClickListener { dial(Account.load(this).voicemail); true }
@@ -411,6 +415,10 @@ class MainActivity : AppCompatActivity(), Phone.Observer {
         s.rowGeneral.icon.setImageResource(R.drawable.ic_palette)
         s.rowGeneral.title.setText(R.string.general)
         s.rowGeneral.root.setOnClickListener { startActivity(Intent(this, GeneralActivity::class.java)) }
+        s.rowAudio.icon.setImageResource(R.drawable.ic_tune)
+        s.rowAudio.title.setText(R.string.audio)
+        s.rowAudio.summary.setText(R.string.audio_summary)
+        s.rowAudio.root.setOnClickListener { startActivity(Intent(this, AudioActivity::class.java)) }
         s.rowConnection.icon.setImageResource(R.drawable.ic_cloud)
         s.rowConnection.title.setText(R.string.connection)
         s.rowConnection.root.setOnClickListener { startActivity(Intent(this, ConnectionActivity::class.java)) }
@@ -437,6 +445,7 @@ class MainActivity : AppCompatActivity(), Phone.Observer {
             key.setTextColor(Color.WHITE)
             key.setOnClickListener {
                 if (Phone.call?.state != CallState.ACTIVE) return@setOnClickListener
+                KeyFeedback.onKey(this, ch, inCall = true)
                 Phone.dtmf(ch)
                 c.dtmfSent.text = (c.dtmfSent.text.toString() + ch).takeLast(16)
             }
@@ -484,6 +493,7 @@ class MainActivity : AppCompatActivity(), Phone.Observer {
     private fun renderCall() {
         val c = b.callPanel
         val call = Phone.call
+        updateProximity(call)
         if (call == null) {
             c.root.visibility = View.GONE
             shownCall = null
@@ -520,6 +530,27 @@ class MainActivity : AppCompatActivity(), Phone.Observer {
         }
         c.mute.isChecked = Phone.muted
         c.speaker.isChecked = Phone.speaker
+    }
+
+    // ------------------------------------------------------------------ датчик приближения
+
+    private fun updateProximity(call: IaxCall?) {
+        val active = call != null && (call.state == CallState.DIALING || call.state == CallState.RINGING ||
+            call.state == CallState.ACTIVE)
+        setProximity(AudioPrefs.proximity && active && !Phone.speaker)
+    }
+
+    private fun setProximity(on: Boolean) {
+        if (on) {
+            if (proximityLock?.isHeld == true) return
+            val pm = getSystemService(PowerManager::class.java) ?: return
+            if (!pm.isWakeLockLevelSupported(PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK)) return
+            proximityLock = pm.newWakeLock(PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK, "IaxPhone:proximity")
+                .apply { setReferenceCounted(false); acquire(4 * 60 * 60 * 1000L) }
+        } else {
+            proximityLock?.let { if (it.isHeld) it.release(PowerManager.RELEASE_FLAG_WAIT_FOR_NO_PROXIMITY) }
+            proximityLock = null
+        }
     }
 
     // ------------------------------------------------------------------ вспомогательное

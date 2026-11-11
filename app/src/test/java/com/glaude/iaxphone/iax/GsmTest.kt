@@ -83,4 +83,14 @@ class GsmTest {
         assertFalse(Updater.isNewer("0.1.9", "0.2.0"))
         assertFalse(Updater.isNewer("0.2.0", "0.2.0-test"))
     }
+
+    @Test
+    fun gainSaturatesAndKeepsUnity() {
+        val pcm = shortArrayOf(1000, -1000, 30000, -30000, 0)
+        assertTrue(com.glaude.iaxphone.AudioPrefs.applyGain(pcm, 1f) === pcm)
+        val louder = com.glaude.iaxphone.AudioPrefs.applyGain(pcm, com.glaude.iaxphone.AudioPrefs.dbToFactor(6))
+        assertEquals(1995, louder[0].toInt())
+        assertEquals(Short.MAX_VALUE, louder[2])
+        assertEquals(Short.MIN_VALUE, louder[3])
+    }
 }

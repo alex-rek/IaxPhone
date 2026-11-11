@@ -13,6 +13,14 @@
         android:layout_marginStart="72dp"
         android:background="@color/divider" />
 
+    <include android:id="@+id/rowAudio" layout="@layout/item_settings" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginStart="72dp"
+        android:background="@color/divider" />
+
     <include android:id="@+id/rowConnection" layout="@layout/item_settings" />
 
     <View

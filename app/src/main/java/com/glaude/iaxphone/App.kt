@@ -8,6 +8,7 @@ class App : Application() {
     override fun onCreate() {
         super.onCreate()
         ThemePref.apply(ThemePref.get(this))
+        AudioPrefs.load(this)
     }
 }
 

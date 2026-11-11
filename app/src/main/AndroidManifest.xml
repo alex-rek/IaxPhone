@@ -45,6 +45,11 @@
             android:parentActivityName=".MainActivity" />
 
         <activity
+            android:name=".AudioActivity"
+            android:exported="false"
+            android:parentActivityName=".MainActivity" />
+
+        <activity
             android:name=".LogActivity"
             android:exported="false"
             android:parentActivityName=".MainActivity" />

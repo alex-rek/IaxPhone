@@ -47,6 +47,27 @@
     <string name="connection_hint">Учётная запись IAX2 на сервере (например, Asterisk). Подключение сохраняется и восстанавливается при следующем запуске.</string>
     <string name="not_configured">Не настроено — нажмите, чтобы подключиться</string>
 
+    <!-- Аудио -->
+    <string name="audio">Аудио</string>
+    <string name="audio_summary">Клавиатура, обработка звука, громкость</string>
+    <string name="audio_keypad">Клавиатура</string>
+    <string name="audio_key_vibrate">Виброотклик клавиатуры</string>
+    <string name="audio_key_sound">Звуки клавиатуры</string>
+    <string name="audio_call">Вызов</string>
+    <string name="audio_echo">Подавление эха</string>
+    <string name="audio_noise">Шумоподавление</string>
+    <string name="audio_agc">Автоматическая регулировка уровня микрофона</string>
+    <string name="audio_effects_hint">Встроенная обработка Android; изменения применяются к следующему вызову.</string>
+    <string name="audio_unavailable">%1$s (недоступно на этом устройстве)</string>
+    <string name="audio_proximity">Гасить экран у уха</string>
+    <string name="audio_proximity_hint">Датчик приближения выключает экран во время разговора, чтобы щека не нажимала кнопки. При включённом динамике экран не гаснет.</string>
+    <string name="audio_volume">Громкость</string>
+    <string name="audio_speaker_gain">Усиление динамика</string>
+    <string name="audio_mic_gain">Усиление микрофона</string>
+    <string name="audio_speaker_gain_value">Усиление динамика: %1$s</string>
+    <string name="audio_mic_gain_value">Усиление микрофона: %1$s</string>
+    <string name="audio_gain_hint">Действует сразу, в том числе во время разговора. Слишком большое усиление может давать хрип.</string>
+
     <!-- Голосовая почта -->
     <string name="voicemail_number">Номер голосовой почты</string>
     <string name="voicemail_new">Голосовая почта · новых: %1$d</string>

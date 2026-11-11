@@ -3,8 +3,6 @@ package com.glaude.iaxphone
 import android.content.Context
 import android.media.Ringtone
 import android.media.RingtoneManager
-import android.media.ToneGenerator
-import android.media.AudioManager
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -39,7 +37,6 @@ object Phone : IaxListener {
     private var audio: AudioEngine? = null
     private var client: IaxClient? = null
     private var ringtone: Ringtone? = null
-    private var dtmfTone: ToneGenerator? = null
     private var callStartedMs = 0L
 
     var regState = RegState.OFF; private set
@@ -58,6 +55,7 @@ object Phone : IaxListener {
 
     fun init(context: Context) {
         if (!::app.isInitialized) app = context.applicationContext
+        AudioPrefs.load(app)
     }
 
     fun addObserver(o: Observer) { observers += o }
@@ -115,7 +113,6 @@ object Phone : IaxListener {
         val cl = call ?: return
         if (cl.state != CallState.ACTIVE) return
         client?.sendDtmf(cl, digit)
-        playDtmfTone(digit)
     }
 
     fun toggleMute() { muted = !muted; audio?.muted = muted; notifyChanged() }
@@ -224,18 +221,5 @@ object Phone : IaxListener {
     private fun stopRinging() {
         ringtone?.stop()
         ringtone = null
-    }
-
-    private fun playDtmfTone(digit: Char) {
-        val tone = when (digit) {
-            in '0'..'9' -> ToneGenerator.TONE_DTMF_0 + (digit - '0')
-            '*' -> ToneGenerator.TONE_DTMF_S
-            '#' -> ToneGenerator.TONE_DTMF_P
-            else -> return
-        }
-        try {
-            if (dtmfTone == null) dtmfTone = ToneGenerator(AudioManager.STREAM_VOICE_CALL, 60)
-            dtmfTone?.startTone(tone, 120)
-        } catch (_: Exception) { }
     }
 }
