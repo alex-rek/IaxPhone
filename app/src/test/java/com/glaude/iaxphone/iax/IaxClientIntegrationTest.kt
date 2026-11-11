@@ -25,14 +25,14 @@ class IaxClientIntegrationTest {
     @Before
     fun startDefaultServer() = startServer("ulaw,alaw")
 
-    private fun startServer(codecs: String) {
+    private fun startServer(codecs: String, vararg extra: String) {
         server?.destroy()
         serverLog.clear()
         val script = listOf(File("../tools/iax_test_server.py"), File("tools/iax_test_server.py")).firstOrNull { it.exists() }
         assumeTrue("нет tools/iax_test_server.py", script != null)
         port = DatagramSocket(0).use { it.localPort }
         val pb = ProcessBuilder("python", "-u", script!!.path, "--host", "127.0.0.1", "--port", "$port",
-            "--user", "100:secret", "--user", "200:other", "--codecs", codecs).redirectErrorStream(true)
+            "--user", "100:secret", "--user", "200:other", "--codecs", codecs, *extra).redirectErrorStream(true)
         pb.environment()["PYTHONIOENCODING"] = "utf-8"
         val p = try { pb.start() } catch (e: Exception) { null }
         assumeTrue("python недоступен", p != null)
@@ -60,6 +60,8 @@ class IaxClientIntegrationTest {
         val media = LinkedBlockingQueue<IaxCall>()
         @Volatile var voiceFrames = 0
         @Volatile var lastVoice: ByteArray? = null
+        val voicemail = LinkedBlockingQueue<Pair<Int, Int>>()
+        override fun onVoicemail(newCount: Int, oldCount: Int) { voicemail.offer(newCount to oldCount) }
         override fun onRegistration(state: RegState, detail: String) { reg.offer(state) }
         override fun onCallState(call: IaxCall) { states.offer(call to call.state) }
         override fun onIncomingCall(call: IaxCall) { incoming.offer(call) }
@@ -200,6 +202,16 @@ class IaxClientIntegrationTest {
         val call = c.call("600")
         assertTrue(rec.awaitState(call, CallState.ENDED))
         assertTrue(call.endReason!!, call.endReason!!.contains("Unable to negotiate codec"))
+        c.stop()
+    }
+
+    @Test
+    fun voicemailCountersFromRegack() {
+        startServer("ulaw,alaw", "--voicemail", "3:17")
+        val rec = Recorder()
+        val c = client(rec)
+        assertTrue(rec.awaitReg(RegState.REGISTERED))
+        assertEquals(3 to 17, rec.voicemail.poll(5, TimeUnit.SECONDS))
         c.stop()
     }
 }

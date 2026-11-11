@@ -35,6 +35,16 @@
             android:textSize="13sp" />
     </LinearLayout>
 
+    <!-- Новые сообщения голосовой почты; нажатие — звонок на почту -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/voicemail"
+        style="@style/Widget.Material3.Button.TonalButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:visibility="gone"
+        app:icon="@drawable/ic_voicemail" />
+
     <!-- Набранный номер -->
     <LinearLayout
         android:layout_width="match_parent"

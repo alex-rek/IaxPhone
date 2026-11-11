@@ -188,6 +188,9 @@ class MainActivity : AppCompatActivity(), Phone.Observer {
         d.keypad.k0.text = keyLabel("0", "+")
         forEachKey(d.keypad) { key, c -> key.setOnClickListener { insertDigit(c) } }
         d.keypad.k0.setOnLongClickListener { insertDigit('+'); true }
+        // Долгое нажатие «1» — голосовая почта, как в обычной звонилке.
+        d.keypad.k1.setOnLongClickListener { dial(Account.load(this).voicemail); true }
+        d.voicemail.setOnClickListener { dial(Account.load(this).voicemail) }
         d.backspace.setOnClickListener {
             val e = d.number
             val start = e.selectionStart.coerceAtLeast(0)
@@ -455,6 +458,8 @@ class MainActivity : AppCompatActivity(), Phone.Observer {
         val d = b.pageDialer
         d.regStatus.text = statusLine()
         d.regDot.background.setTint(ContextCompat.getColor(this, regColor()))
+        d.voicemail.visibility = if (Phone.connected && Phone.vmNew > 0) View.VISIBLE else View.GONE
+        if (Phone.vmNew > 0) d.voicemail.text = getString(R.string.voicemail_new, Phone.vmNew)
         b.pageSettings.rowConnection.summary.text = statusLine()
         b.pageSettings.rowGeneral.summary.text =
             getString(R.string.theme) + ": " + getString(ThemePref.get(this).title).lowercase()

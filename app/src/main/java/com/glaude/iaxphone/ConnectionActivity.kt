@@ -9,6 +9,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
+import androidx.core.widget.doAfterTextChanged
 import com.glaude.iaxphone.databinding.ActivityConnectionBinding
 import com.glaude.iaxphone.iax.IAX_DEFAULT_PORT
 import com.glaude.iaxphone.iax.RegState
@@ -39,6 +40,11 @@ class ConnectionActivity : AppCompatActivity(), Phone.Observer {
         b.username.setText(acc.username)
         b.password.setText(acc.password)
         b.callerId.setText(acc.callerId)
+        b.voicemail.setText(acc.voicemail)
+        // Номер почты можно менять и при активном подключении — сохраняем сразу.
+        b.voicemail.doAfterTextChanged { s ->
+            Account.save(this, Account.load(this).copy(voicemail = s.toString().trim().ifEmpty { Account.DEFAULT_VOICEMAIL }))
+        }
         b.connect.setOnClickListener { onConnectClicked() }
     }
 
@@ -81,7 +87,8 @@ class ConnectionActivity : AppCompatActivity(), Phone.Observer {
         val connected = Phone.connected
         b.connect.setText(if (connected) R.string.disconnect else R.string.connect)
         listOf(b.host, b.port, b.username, b.password, b.callerId).forEach { it.isEnabled = !connected }
-        b.regStatus.text = Phone.regDetail
+        b.regStatus.text = Phone.regDetail +
+            if (Phone.vmNew >= 0) ", " + getString(R.string.voicemail_status, Phone.vmNew, Phone.vmOld) else ""
         val color = when (Phone.regState) {
             RegState.REGISTERED -> R.color.status_ok
             RegState.REGISTERING -> R.color.status_wait

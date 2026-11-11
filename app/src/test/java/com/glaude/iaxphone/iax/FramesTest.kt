@@ -67,4 +67,12 @@ class FramesTest {
         assertTrue(IaxClient.seqBefore(3, 5))
         assertTrue(!IaxClient.seqBefore(5, 5))
     }
+
+    @Test
+    fun msgCountSplitsNewAndOld() {
+        // Пример с реального сервера: 0x1111 — 17 новых и 17 прослушанных, 0x1100 — 0 новых.
+        assertEquals(17 to 17, IaxClient.parseMsgCount(0x1111))
+        assertEquals(0 to 17, IaxClient.parseMsgCount(0x1100))
+        assertEquals(3 to 0, IaxClient.parseMsgCount(0x0003))
+    }
 }

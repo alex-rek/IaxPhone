@@ -47,6 +47,11 @@
     <string name="connection_hint">Учётная запись IAX2 на сервере (например, Asterisk). Подключение сохраняется и восстанавливается при следующем запуске.</string>
     <string name="not_configured">Не настроено — нажмите, чтобы подключиться</string>
 
+    <!-- Голосовая почта -->
+    <string name="voicemail_number">Номер голосовой почты</string>
+    <string name="voicemail_new">Голосовая почта · новых: %1$d</string>
+    <string name="voicemail_status">почта: новых %1$d, прослушанных %2$d</string>
+
     <!-- Логи -->
     <string name="logs">Логи</string>
     <string name="logs_summary">Журнал протокола IAX2</string>

@@ -54,6 +54,8 @@ class IaxCall internal constructor(
 
 interface IaxListener {
     fun onRegistration(state: RegState, detail: String) {}
+    /** Голосовая почта из REGACK: новые и прослушанные сообщения. */
+    fun onVoicemail(newCount: Int, oldCount: Int) {}
     fun onIncomingCall(call: IaxCall) {}
     fun onCallState(call: IaxCall) {}
     /** Пора запускать звук: формат согласован (ACCEPT для исходящего, ответ для входящего). */
@@ -245,9 +247,13 @@ class IaxClient(
                 if (regSession === s) regSession = null
                 if (s.initialCmd == IaxCmd.REGREL) { log("Регистрация снята"); return }
                 val refresh = (f.ies.u16(Ie.REFRESH) ?: config.refresh).coerceAtLeast(10)
-                val msgs = f.ies.u16(Ie.MSGCOUNT)
-                setReg(RegState.REGISTERED, "Зарегистрирован (обновление через $refresh с)" +
-                    (if (msgs != null && msgs > 0) ", сообщений: $msgs" else ""))
+                setReg(RegState.REGISTERED, "Зарегистрирован (обновление через $refresh с)")
+                f.ies.u16(Ie.MSGCOUNT)?.let { m ->
+                    // Asterisk: старший байт — прослушанные, младший — новые (каждое до 255).
+                    val (new, old) = parseMsgCount(m)
+                    log("Голосовая почта: новых $new, прослушанных $old")
+                    listener.onVoicemail(new, old)
+                }
                 scheduleRegister((refresh * 3L / 4).coerceAtLeast(5))
             }
             IaxCmd.REGREJ -> regFailed(s, "Отказ: " + (f.ies.str(Ie.CAUSE) ?: "без причины"))
@@ -618,6 +624,9 @@ class IaxClient(
         private const val INITIAL_RTO = 500L
         private const val MAX_RTO = 2000L
         private const val MAX_RETRIES = 6
+
+        /** Поле MSGCOUNT: (прослушанные shl 8) or новые. Возвращает (новые, прослушанные). */
+        fun parseMsgCount(v: Int): Pair<Int, Int> = (v and 0xff) to ((v shr 8) and 0xff)
 
         fun md5Hex(s: String): String =
             MessageDigest.getInstance("MD5").digest(s.toByteArray()).toHex()

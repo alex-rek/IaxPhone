@@ -44,6 +44,9 @@ object Phone : IaxListener {
 
     var regState = RegState.OFF; private set
     var regDetail = "Не подключено"; private set
+    /** Голосовая почта: -1 — сервер не сообщал. */
+    var vmNew = -1; private set
+    var vmOld = -1; private set
     var call: IaxCall? = null; private set
     var callState: CallState? = null; private set
     var muted = false; private set
@@ -81,6 +84,7 @@ object Phone : IaxListener {
         c.stop { main.post { onDone?.invoke() } }
         regState = RegState.OFF
         regDetail = "Не подключено"
+        vmNew = -1; vmOld = -1
         setCall(null)
     }
 
@@ -124,6 +128,13 @@ object Phone : IaxListener {
         main.post {
             if (client == null && state != RegState.OFF) return@post
             regState = state; regDetail = detail; notifyChanged()
+        }
+    }
+
+    override fun onVoicemail(newCount: Int, oldCount: Int) {
+        main.post {
+            if (client == null) return@post
+            vmNew = newCount; vmOld = oldCount; notifyChanged()
         }
     }
 

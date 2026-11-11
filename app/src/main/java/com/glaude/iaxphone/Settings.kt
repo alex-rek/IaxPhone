@@ -12,6 +12,7 @@ data class Account(
     val password: String = "",
     val callerId: String = "",
     val lastNumber: String = "",
+    val voicemail: String = DEFAULT_VOICEMAIL,
 ) {
     val isComplete get() = host.isNotBlank() && username.isNotBlank()
 
@@ -22,6 +23,7 @@ data class Account(
 
     companion object {
         private const val PREFS = "account"
+        const val DEFAULT_VOICEMAIL = "*97"
 
         fun load(ctx: Context): Account {
             val p = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -32,6 +34,7 @@ data class Account(
                 password = p.getString("password", "") ?: "",
                 callerId = p.getString("callerId", "") ?: "",
                 lastNumber = p.getString("lastNumber", "") ?: "",
+                voicemail = p.getString("voicemail", DEFAULT_VOICEMAIL) ?: DEFAULT_VOICEMAIL,
             )
         }
 
@@ -47,6 +50,7 @@ data class Account(
                 .putString("host", a.host).putInt("port", a.port)
                 .putString("username", a.username).putString("password", a.password)
                 .putString("callerId", a.callerId).putString("lastNumber", a.lastNumber)
+                .putString("voicemail", a.voicemail)
                 .apply()
         }
     }

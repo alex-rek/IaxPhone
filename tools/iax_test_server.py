@@ -41,6 +41,7 @@ IE_CAPABILITY, IE_FORMAT, IE_VERSION, IE_AUTHMETHODS, IE_CHALLENGE = 0x08, 0x09,
 IE_MD5_RESULT, IE_REFRESH, IE_CAUSE, IE_CAUSECODE, IE_CALLTOKEN = 0x10, 0x13, 0x16, 0x2a, 0x36
 GSM, ULAW, ALAW = 0x2, 0x4, 0x8
 CODEC_NAMES = {"gsm": GSM, "ulaw": ULAW, "alaw": ALAW}
+IE_MSGCOUNT = 0x18
 
 IAX_NAMES = {NEW: "NEW", PING: "PING", PONG: "PONG", ACK: "ACK", HANGUP: "HANGUP", REJECT: "REJECT",
              ACCEPT: "ACCEPT", AUTHREQ: "AUTHREQ", AUTHREP: "AUTHREP", INVAL: "INVAL", LAGRQ: "LAGRQ",
@@ -131,8 +132,9 @@ class Call:
 
 
 class Server:
-    def __init__(self, host, port, users, codecs=(ULAW, ALAW)):
+    def __init__(self, host, port, users, codecs=(ULAW, ALAW), voicemail=None):
         self.codecs = list(codecs)            # разрешённые, в порядке предпочтения
+        self.voicemail = voicemail            # (новые, прослушанные) или None
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind((host, port))
         self.users = users
@@ -305,7 +307,11 @@ class Server:
                 else:
                     self.regs.pop(c.user, None)
                     log(f"** {c.user} снял регистрацию")
-                self.send_full(c, IAX, REGACK, ie(IE_USERNAME, c.user) + ie16(IE_REFRESH, refresh))
+                ies_out = ie(IE_USERNAME, c.user) + ie16(IE_REFRESH, refresh)
+                if self.voicemail and sub == REGREQ:
+                    new, old = self.voicemail
+                    ies_out += ie16(IE_MSGCOUNT, (min(old, 255) << 8) | min(new, 255))  # как Asterisk
+                self.send_full(c, IAX, REGACK, ies_out)
                 self.close(c)
             elif sub == AUTHREP and c.kind == "in":
                 if not self.check_md5(c, ies):
@@ -493,11 +499,13 @@ def main():
     ap.add_argument("--port", type=int, default=4569)
     ap.add_argument("--user", action="append", default=[], help="логин:пароль, можно несколько раз")
     ap.add_argument("--codecs", default="ulaw,alaw", help="разрешённые кодеки: ulaw, alaw, gsm")
+    ap.add_argument("--voicemail", help="сообщить о голосовой почте при регистрации: НОВЫЕ:ПРОСЛУШАННЫЕ")
     args = ap.parse_args()
+    vm = tuple(int(x) for x in args.voicemail.split(":")) if args.voicemail else None
     users = dict(u.split(":", 1) for u in (args.user or ["100:secret"]))
     codecs = [CODEC_NAMES[x.strip().lower()] for x in args.codecs.split(",") if x.strip()]
     try:
-        Server(args.host, args.port, users, codecs).run()
+        Server(args.host, args.port, users, codecs, vm).run()
     except (KeyboardInterrupt, SystemExit):
         pass
 
