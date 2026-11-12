@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Удержание без круга: включённое — жёлтым -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:color="#FFD54F" android:state_checked="true" />
+    <item android:color="#FFFFFF" />
+</selector>

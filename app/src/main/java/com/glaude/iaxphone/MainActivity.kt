@@ -658,7 +658,11 @@ class MainActivity : AppCompatActivity(), Phone.Observer {
         }
         c.answer.visibility = if (state == CallState.INCOMING) View.VISIBLE else View.GONE
         c.hangup.visibility = if (state != CallState.ENDED) View.VISIBLE else View.INVISIBLE
-        c.inCallControls.visibility = if (state == CallState.ACTIVE) View.VISIBLE else View.INVISIBLE
+        val active = if (state == CallState.ACTIVE) View.VISIBLE else View.INVISIBLE
+        c.inCallControls.visibility = active
+        c.holdCell.visibility = active
+        c.recordCell.visibility = active
+        c.volume.visibility = active
         if (state != CallState.ACTIVE && c.callKeypad.root.visibility == View.VISIBLE) {
             c.keypadToggle.isChecked = false
             c.callKeypad.root.visibility = View.GONE
