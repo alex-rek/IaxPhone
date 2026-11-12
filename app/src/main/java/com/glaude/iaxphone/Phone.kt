@@ -3,10 +3,14 @@ package com.glaude.iaxphone
 import android.content.Context
 import android.media.Ringtone
 import android.media.RingtoneManager
+import android.net.ConnectivityManager
+import android.net.LinkProperties
+import android.net.Network
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import com.glaude.iaxphone.audio.AudioEngine
+import com.glaude.iaxphone.audio.CallRecorder
 import com.glaude.iaxphone.iax.CallState
 import com.glaude.iaxphone.iax.IaxCall
 import com.glaude.iaxphone.iax.IaxClient
@@ -50,6 +54,11 @@ object Phone : IaxListener {
     var speaker = false; private set
     val connected get() = client != null
 
+    /** Запись разговора: время начала или 0, если не пишем. */
+    var recordingSinceMs = 0L; private set
+    val recording get() = recordingSinceMs > 0
+    private var recorder: CallRecorder? = null
+
     /** Хук сервиса: true — нужен микрофон в foreground-сервисе, false — больше не нужен. */
     var microphoneHook: ((Boolean) -> Unit)? = null
 
@@ -71,13 +80,16 @@ object Phone : IaxListener {
         regState = RegState.REGISTERING
         regDetail = "Подключение…"
         client = IaxClient(config, this).also { it.start() }
+        NetworkWatch.start()
         notifyChanged()
     }
 
     fun disconnect(onDone: (() -> Unit)? = null) {
         val c = client ?: run { onDone?.invoke(); return }
+        NetworkWatch.stop()
         client = null
         stopRinging()
+        stopRecording()
         audio?.stop()
         c.stop { main.post { onDone?.invoke() } }
         regState = RegState.OFF
@@ -90,7 +102,9 @@ object Phone : IaxListener {
         val c = client ?: return false
         if ((call != null && call?.state != CallState.ENDED) || number.isBlank()) return false
         microphoneHook?.invoke(true)
-        setCall(c.call(number.trim()))
+        val newCall = c.call(number.trim())
+        setCall(newCall)
+        TelecomBridge.onOutgoing(app, newCall)
         return true
     }
 
@@ -117,7 +131,154 @@ object Phone : IaxListener {
 
     fun toggleMute() { muted = !muted; audio?.muted = muted; notifyChanged() }
 
-    fun toggleSpeaker() { speaker = !speaker; audio?.setSpeaker(speaker); notifyChanged() }
+    fun toggleSpeaker() {
+        speaker = !speaker
+        if (!TelecomBridge.setSpeaker(speaker)) audio?.setSpeaker(speaker)
+        notifyChanged()
+    }
+
+    fun toggleHold() { call?.let { setHold(!it.onHold) } }
+
+    fun setHold(hold: Boolean) {
+        val cl = call ?: return
+        if (cl.state != CallState.ACTIVE) return
+        audio?.onHold = hold
+        client?.setHold(cl, hold)
+    }
+
+    fun silenceRinger() = stopRinging()
+
+    /** Включает или выключает запись текущего разговора. */
+    fun toggleRecording() { if (recording) stopRecording() else startRecording() }
+
+    private fun startRecording() {
+        val cl = call ?: return
+        val a = audio ?: return
+        if (cl.state != CallState.ACTIVE || recording) return
+        val r = try { CallRecorder(Recordings.newTempFile(app)) } catch (e: Exception) { Log.w(TAG, "rec", e); return }
+        recorder = r
+        a.recorder = r
+        recordingSinceMs = System.currentTimeMillis()
+        notifyChanged()
+    }
+
+    /** Останавливает запись и переносит файл в общую папку (в фоне). */
+    private fun stopRecording() {
+        val r = recorder ?: return
+        val cl = call
+        recorder = null
+        audio?.recorder = null
+        recordingSinceMs = 0
+        val startMs = callStartedMs
+        val name = Recordings.fileName(cl?.number ?: "call", cl?.outgoing ?: true, startMs)
+        Thread {
+            val sec = try { r.close() } catch (e: Exception) { Log.w(TAG, "rec close", e); -1L }
+            val uri = if (sec >= 0) Recordings.publish(app, r.file, name) else { r.file.delete(); null }
+            main.post {
+                if (uri != null) {
+                    // Запись журнала появляется при завершении вызова — привяжем, когда она есть.
+                    pendingRecording = startMs to uri.toString()
+                    attachPendingRecording()
+                }
+                notifyChanged()
+            }
+        }.start()
+        notifyChanged()
+    }
+
+    private var pendingRecording: Pair<Long, String>? = null
+
+    private fun attachPendingRecording() {
+        val (start, uri) = pendingRecording ?: return
+        if (CallHistory.all(app).any { it.startMs == start }) {
+            CallHistory.setRecording(app, start, uri)
+            pendingRecording = null
+        }
+    }
+
+    // ------------------------------------------------------------------ система вызовов (Telecom)
+
+    internal fun onTelecomAttached(cl: IaxCall) {
+        if (cl !== call) return
+        audio?.routedBySystem = true
+    }
+
+    internal fun onTelecomRejected(cl: IaxCall) {
+        if (cl !== call) return
+        // Система не дала занять линию (например, идёт экстренный вызов).
+        if (!cl.outgoing) client?.hangup(cl, busy = true)
+        else onLog("Система вызовов отказала, продолжаем без неё")
+    }
+
+    internal fun onSystemAudioRoute(speakerOn: Boolean) {
+        if (speaker == speakerOn) return
+        speaker = speakerOn
+        notifyChanged()
+    }
+
+    // ------------------------------------------------------------------ сеть
+
+    /** Следит за сменой сети и сразу перерегистрируется. */
+    private object NetworkWatch {
+        private var callback: ConnectivityManager.NetworkCallback? = null
+        private var network: Network? = null
+        private var addresses: List<String>? = null
+        private var initialized = false
+
+        fun start() {
+            if (callback != null) return
+            val cm = app.getSystemService(ConnectivityManager::class.java) ?: return
+            initialized = false; network = null; addresses = null
+            val cb = object : ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(n: Network) { main.post { changed(n, null) } }
+                override fun onLinkPropertiesChanged(n: Network, lp: LinkProperties) {
+                    val list = lp.linkAddresses.mapNotNull { it.address?.hostAddress }.sorted()
+                    main.post { changed(n, list) }
+                }
+                override fun onLost(n: Network) {
+                    main.post {
+                        if (network == n) { network = null; addresses = null; onLog("Сеть пропала") }
+                    }
+                }
+            }
+            try {
+                cm.registerDefaultNetworkCallback(cb)
+                callback = cb
+            } catch (e: Exception) {
+                Log.w(TAG, "network callback", e)
+            }
+        }
+
+        fun stop() {
+            main.removeCallbacks(reregister)
+            pendingReason = null
+            val cb = callback ?: return
+            callback = null
+            try { app.getSystemService(ConnectivityManager::class.java)?.unregisterNetworkCallback(cb) } catch (_: Exception) { }
+        }
+
+        private fun changed(n: Network, list: List<String>?) {
+            if (callback == null) return
+            val first = !initialized
+            initialized = true
+            val newNetwork = n != network
+            val newAddresses = list != null && addresses != null && list != addresses
+            network = n
+            if (list != null) addresses = list
+            if (first || !(newNetwork || newAddresses)) return
+            // Смена сети приходит пачкой событий (сеть, адреса IPv4/IPv6) — регистрируемся один раз.
+            pendingReason = if (newNetwork || pendingReason == null) (if (newNetwork) "сменилась сеть" else "сменился IP-адрес") else pendingReason
+            main.removeCallbacks(reregister)
+            main.postDelayed(reregister, 1500)
+        }
+
+        private var pendingReason: String? = null
+        private val reregister = Runnable {
+            val reason = pendingReason ?: return@Runnable
+            pendingReason = null
+            client?.reregister(reason)
+        }
+    }
 
     // ------------------------------------------------------------------ IaxListener (поток iax-loop)
 
@@ -143,6 +304,7 @@ object Phone : IaxListener {
             }
             setCall(call)
             startRinging()
+            TelecomBridge.onIncoming(app, call)
         }
     }
 
@@ -150,8 +312,11 @@ object Phone : IaxListener {
         main.post {
             if (call !== this.call) return@post
             callState = call.state
+            audio?.onHold = call.onHold
             if (call.state != CallState.INCOMING) stopRinging()
+            TelecomBridge.update(call)
             if (call.state == CallState.ENDED) {
+                stopRecording()
                 recordHistory(call)
                 audio?.stop()
                 muted = false; speaker = false
@@ -169,8 +334,13 @@ object Phone : IaxListener {
         val c = client ?: return
         val a = audio ?: return
         a.muted = muted
+        a.onHold = false
+        a.routedBySystem = TelecomBridge.active
         a.start(call.format) { frame -> c.sendVoice(call, frame) }
-        main.post { a.setSpeaker(speaker) }
+        main.post {
+            if (!TelecomBridge.active) a.setSpeaker(speaker)
+            if (AudioPrefs.autoRecord && call.state == CallState.ACTIVE) startRecording()
+        }
     }
 
     override fun onVoice(call: IaxCall, timestamp: Long, format: Long, payload: ByteArray) {
@@ -194,6 +364,7 @@ object Phone : IaxListener {
         val dur = if (answered) (System.currentTimeMillis() - c.answeredAtMs) / 1000 else 0
         try {
             CallHistory.add(app, CallRecord(c.number, c.remoteName, c.outgoing, answered, callStartedMs, dur))
+            attachPendingRecording()
         } catch (e: Exception) {
             Log.w(TAG, "history", e)
         }

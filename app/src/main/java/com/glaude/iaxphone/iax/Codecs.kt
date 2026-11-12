@@ -14,6 +14,13 @@ object Codecs {
 
     fun isSupported(format: Long) = format in SUPPORTED
 
+    /** Длительность звука в полезной нагрузке, мс (для подсчёта потерь). */
+    fun frameMs(format: Long, payloadSize: Int): Long = when (format) {
+        Codec.ULAW, Codec.ALAW -> payloadSize / 8L
+        Codec.GSM -> payloadSize / Gsm.FRAME_BYTES * 20L
+        else -> 20L
+    }
+
     fun create(format: Long): VoiceCodec = when (format) {
         Codec.ULAW, Codec.ALAW -> G711Codec(format)
         Codec.GSM -> GsmCodec()

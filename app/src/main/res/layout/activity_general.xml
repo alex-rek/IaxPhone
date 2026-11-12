@@ -95,6 +95,135 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="24dp"
                 android:layout_marginTop="20dp"
+                android:text="@string/calls"
+                android:textAppearance="?attr/textAppearanceTitleSmall"
+                android:textColor="@color/top_bar_primary" />
+
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/telecom"
+                style="@style/GeneralSwitch"
+                android:text="@string/telecom" />
+
+            <TextView
+                android:id="@+id/telecomHint"
+                style="@style/GeneralHint"
+                android:text="@string/telecom_hint" />
+
+            <LinearLayout
+                android:id="@+id/fullscreenRow"
+                style="@style/GeneralActionRow">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/fullscreen"
+                        android:textColor="@color/key_text"
+                        android:textSize="16sp" />
+
+                    <TextView
+                        android:id="@+id/fullscreenStatus"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="13sp" />
+                </LinearLayout>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/fullscreenAllow"
+                    style="?attr/materialButtonOutlinedStyle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/bg_allow" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="20dp"
+                android:background="@color/divider" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="24dp"
+                android:layout_marginTop="20dp"
+                android:text="@string/background"
+                android:textAppearance="?attr/textAppearanceTitleSmall"
+                android:textColor="@color/top_bar_primary" />
+
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/connectOnStart"
+                style="@style/GeneralSwitch"
+                android:text="@string/bg_connect_on_start" />
+
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/startOnBoot"
+                style="@style/GeneralSwitch"
+                android:text="@string/bg_start_on_boot" />
+
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/keepAwake"
+                style="@style/GeneralSwitch"
+                android:text="@string/bg_keep_awake" />
+
+            <TextView
+                style="@style/GeneralHint"
+                android:text="@string/bg_keep_awake_hint" />
+
+            <LinearLayout
+                android:id="@+id/batteryRow"
+                style="@style/GeneralActionRow">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/bg_battery"
+                        android:textColor="@color/key_text"
+                        android:textSize="16sp" />
+
+                    <TextView
+                        android:id="@+id/batteryStatus"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="13sp" />
+                </LinearLayout>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/batteryAllow"
+                    style="?attr/materialButtonOutlinedStyle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/bg_allow" />
+            </LinearLayout>
+
+            <TextView
+                style="@style/GeneralHint"
+                android:text="@string/bg_network_hint" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="20dp"
+                android:background="@color/divider" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="24dp"
+                android:layout_marginTop="20dp"
                 android:text="@string/updates"
                 android:textAppearance="?attr/textAppearanceTitleSmall"
                 android:textColor="@color/top_bar_primary" />
@@ -142,6 +271,10 @@
                     android:textColor="@color/text_secondary"
                     android:textSize="14sp" />
             </LinearLayout>
+
+            <Space
+                android:layout_width="match_parent"
+                android:layout_height="24dp" />
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 </LinearLayout>

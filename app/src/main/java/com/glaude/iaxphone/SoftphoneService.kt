@@ -45,10 +45,10 @@ class SoftphoneService : Service(), Phone.Observer {
                 if (acc.isComplete) Phone.connect(acc.toConfig()) else stopSelf()
             }
             ACTION_STOP -> {
-                Account.setAutoConnect(this, false)
                 Phone.disconnect { stopSelf() }
             }
             ACTION_DECLINE, ACTION_HANGUP -> Phone.hangup()
+            ACTION_REFRESH -> updateIdleLock()
             else -> {
                 // Перезапуск системой без интента: восстанавливаем подключение.
                 promote(false)
@@ -60,6 +60,8 @@ class SoftphoneService : Service(), Phone.Observer {
     }
 
     override fun onDestroy() {
+        idleLock?.let { if (it.isHeld) it.release() }
+        idleLock = null
         Phone.removeObserver(this)
         Phone.microphoneHook = null
         releaseWakeLock()
@@ -68,6 +70,7 @@ class SoftphoneService : Service(), Phone.Observer {
     }
 
     override fun onPhoneChanged() {
+        updateIdleLock()
         if (!Phone.connected) return
         nm().notify(NOTIF_STATUS, statusNotification())
         val call = Phone.call
@@ -94,11 +97,30 @@ class SoftphoneService : Service(), Phone.Observer {
         var type = 0
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) type = type or ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
         if (microphone && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) type = type or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+        // С системой вызовов разговор считается звонком: Android разрешает микрофон и из фона.
+        if (microphone && BackgroundPrefs.telecom(this) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
+            type = type or ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL
         try {
             ServiceCompat.startForeground(this, NOTIF_STATUS, statusNotification(), type)
         } catch (e: Exception) {
             // Например, микрофон запрошен, когда приложение в фоне.
             android.util.Log.w("SoftphoneService", "startForeground", e)
+        }
+    }
+
+    /** «Не давать процессору засыпать»: держим процессор, пока есть подключение. */
+    private var idleLock: PowerManager.WakeLock? = null
+
+    private fun updateIdleLock() {
+        val want = Phone.connected && BackgroundPrefs.keepAwake(this)
+        val held = idleLock?.isHeld == true
+        if (want && !held) {
+            val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+            idleLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "IaxPhone:idle").apply {
+                setReferenceCounted(false); acquire()
+            }
+        } else if (!want && held) {
+            idleLock?.release(); idleLock = null
         }
     }
 
@@ -185,6 +207,7 @@ class SoftphoneService : Service(), Phone.Observer {
         const val ACTION_DECLINE = "com.glaude.iaxphone.DECLINE"
         const val ACTION_HANGUP = "com.glaude.iaxphone.HANGUP"
         const val ACTION_ANSWER = "com.glaude.iaxphone.ANSWER"
+        const val ACTION_REFRESH = "com.glaude.iaxphone.REFRESH"
         private const val CH_STATUS = "status"
         private const val CH_CALLS = "calls"
         private const val NOTIF_STATUS = 1
@@ -192,6 +215,11 @@ class SoftphoneService : Service(), Phone.Observer {
 
         fun start(ctx: Context) =
             ContextCompat.startForegroundService(ctx, Intent(ctx, SoftphoneService::class.java).setAction(ACTION_START))
+
+        /** Перечитать настройки работы в фоне (только если сервис уже работает). */
+        fun refresh(ctx: Context) {
+            if (Phone.connected) ctx.startService(Intent(ctx, SoftphoneService::class.java).setAction(ACTION_REFRESH))
+        }
 
         fun stop(ctx: Context) =
             ctx.startService(Intent(ctx, SoftphoneService::class.java).setAction(ACTION_STOP))

@@ -1,6 +1,10 @@
 package com.glaude.iaxphone
 
+import android.content.Intent
 import android.graphics.Color
+import android.net.Uri
+import android.provider.Settings
+import android.view.View
 import android.os.Bundle
 import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
@@ -10,7 +14,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
 import com.glaude.iaxphone.databinding.ActivityGeneralBinding
 
-/** Настройки → Общие: выбор темы оформления. */
+/** Настройки → Общие: тема, звонки, работа в фоне, обновления. */
 class GeneralActivity : AppCompatActivity() {
 
     private lateinit var b: ActivityGeneralBinding
@@ -40,6 +44,31 @@ class GeneralActivity : AppCompatActivity() {
             if (mode != ThemePref.get(this)) ThemePref.set(this, mode)
         }
 
+        // Звонки: система вызовов Android
+        if (TelecomBridge.isSupported(this)) {
+            b.telecom.isChecked = BackgroundPrefs.telecom(this)
+            b.telecom.setOnCheckedChangeListener { _, on ->
+                BackgroundPrefs.setTelecom(this, on)
+                TelecomBridge.sync(this)
+            }
+        } else {
+            b.telecom.isEnabled = false
+            b.telecomHint.setText(R.string.telecom_unsupported)
+        }
+        b.fullscreenAllow.setOnClickListener { open(BackgroundPrefs.fullScreenSettingsIntent(this)) }
+
+        // Работа в фоне
+        b.connectOnStart.isChecked = BackgroundPrefs.connectOnStart(this)
+        b.connectOnStart.setOnCheckedChangeListener { _, on -> BackgroundPrefs.setConnectOnStart(this, on) }
+        b.startOnBoot.isChecked = BackgroundPrefs.startOnBoot(this)
+        b.startOnBoot.setOnCheckedChangeListener { _, on -> BackgroundPrefs.setStartOnBoot(this, on) }
+        b.keepAwake.isChecked = BackgroundPrefs.keepAwake(this)
+        b.keepAwake.setOnCheckedChangeListener { _, on ->
+            BackgroundPrefs.setKeepAwake(this, on)
+            SoftphoneService.refresh(this)
+        }
+        b.batteryAllow.setOnClickListener { open(BackgroundPrefs.batteryOptimizationIntent(this)) }
+
         // Обновления
         updateUi = UpdateUi(this)
         b.version.text = getString(R.string.app_version, Updater.currentVersion(this))
@@ -51,6 +80,23 @@ class GeneralActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         updateUi.onResume()
+        renderPermissions()
+    }
+
+    /** Состояние системных разрешений (могли измениться в настройках Android). */
+    private fun renderPermissions() {
+        val battery = BackgroundPrefs.ignoresBatteryOptimizations(this)
+        b.batteryStatus.setText(if (battery) R.string.bg_battery_on else R.string.bg_battery_off)
+        b.batteryAllow.visibility = if (battery) View.GONE else View.VISIBLE
+        val full = BackgroundPrefs.canUseFullScreen(this)
+        b.fullscreenStatus.setText(if (full) R.string.fullscreen_on else R.string.fullscreen_off)
+        b.fullscreenAllow.visibility = if (full) View.GONE else View.VISIBLE
+    }
+
+    private fun open(intent: Intent) {
+        try { startActivity(intent) } catch (_: Exception) {
+            try { startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))) } catch (_: Exception) { }
+        }
     }
 
     private fun checkNow() {

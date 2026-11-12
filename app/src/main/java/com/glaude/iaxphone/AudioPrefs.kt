@@ -19,6 +19,8 @@ object AudioPrefs {
     @Volatile var noiseSuppress = true; private set
     @Volatile var autoGain = true; private set
     @Volatile var proximity = true; private set
+    /** Записывать каждый разговор автоматически. */
+    @Volatile var autoRecord = false; private set
     @Volatile var speakerDb = 0; private set
     @Volatile var micDb = 0; private set
 
@@ -37,6 +39,7 @@ object AudioPrefs {
         noiseSuppress = p.getBoolean("noiseSuppress", true)
         autoGain = p.getBoolean("autoGain", true)
         proximity = p.getBoolean("proximity", true)
+        autoRecord = p.getBoolean("autoRecord", false)
         setGains(p.getInt("speakerDb", 0), p.getInt("micDb", 0))
         loaded = true
     }
@@ -49,6 +52,7 @@ object AudioPrefs {
         noiseSuppress: Boolean = this.noiseSuppress,
         autoGain: Boolean = this.autoGain,
         proximity: Boolean = this.proximity,
+        autoRecord: Boolean = this.autoRecord,
         speakerDb: Int = this.speakerDb,
         micDb: Int = this.micDb,
     ) {
@@ -58,11 +62,13 @@ object AudioPrefs {
         this.noiseSuppress = noiseSuppress
         this.autoGain = autoGain
         this.proximity = proximity
+        this.autoRecord = autoRecord
         setGains(speakerDb, micDb)
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putBoolean("keyVibrate", keyVibrate).putBoolean("keySound", keySound)
             .putBoolean("echoCancel", echoCancel).putBoolean("noiseSuppress", noiseSuppress)
             .putBoolean("autoGain", autoGain).putBoolean("proximity", proximity)
+            .putBoolean("autoRecord", autoRecord)
             .putInt("speakerDb", this.speakerDb).putInt("micDb", this.micDb)
             .apply()
     }

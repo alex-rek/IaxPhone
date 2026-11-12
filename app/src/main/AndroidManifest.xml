@@ -13,6 +13,11 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.MANAGE_OWN_CALLS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
 
     <application
         android:name=".App"
@@ -50,6 +55,12 @@
             android:parentActivityName=".MainActivity" />
 
         <activity
+            android:name=".ImportContactsActivity"
+            android:exported="false"
+            android:parentActivityName=".MainActivity"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
             android:name=".LogActivity"
             android:exported="false"
             android:parentActivityName=".MainActivity" />
@@ -67,10 +78,29 @@
         <service
             android:name=".SoftphoneService"
             android:exported="false"
-            android:foregroundServiceType="specialUse|microphone">
+            android:foregroundServiceType="specialUse|microphone|phoneCall">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Keeps the IAX2 VoIP registration alive to receive incoming calls" />
         </service>
+
+        <!-- Встраивание в систему вызовов Android (собственный режим) -->
+        <service
+            android:name=".IaxConnectionService"
+            android:exported="true"
+            android:permission="android.permission.BIND_TELECOM_CONNECTION_SERVICE">
+            <intent-filter>
+                <action android:name="android.telecom.ConnectionService" />
+            </intent-filter>
+        </service>
+
+        <receiver
+            android:name=".BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

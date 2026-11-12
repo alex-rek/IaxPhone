@@ -39,6 +39,22 @@
         <item name="cornerRadius">32dp</item>
     </style>
 
+    <style name="CallControlCell">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:gravity">center_horizontal</item>
+        <item name="android:orientation">vertical</item>
+    </style>
+
+    <style name="VolumeLabel">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">12dp</item>
+        <item name="android:textColor">@color/key_text</item>
+        <item name="android:textSize">16sp</item>
+    </style>
+
     <style name="CallControlLabel">
         <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">wrap_content</item>
@@ -71,6 +87,36 @@
         <item name="android:layout_marginBottom">8dp</item>
         <item name="android:textColor">@color/text_secondary</item>
         <item name="android:textSize">13sp</item>
+    </style>
+
+    <style name="GeneralSwitch">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:minHeight">56dp</item>
+        <item name="android:layout_marginStart">24dp</item>
+        <item name="android:layout_marginEnd">16dp</item>
+        <item name="android:textColor">@color/key_text</item>
+        <item name="android:textSize">16sp</item>
+    </style>
+
+    <style name="GeneralHint">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginStart">24dp</item>
+        <item name="android:layout_marginEnd">24dp</item>
+        <item name="android:layout_marginBottom">8dp</item>
+        <item name="android:textColor">@color/text_secondary</item>
+        <item name="android:textSize">13sp</item>
+    </style>
+
+    <style name="GeneralActionRow">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginStart">24dp</item>
+        <item name="android:layout_marginEnd">16dp</item>
+        <item name="android:minHeight">64dp</item>
+        <item name="android:gravity">center_vertical</item>
+        <item name="android:orientation">horizontal</item>
     </style>
 
     <style name="TopBarOverlay" parent="ThemeOverlay.Material3.Dark.ActionBar" />

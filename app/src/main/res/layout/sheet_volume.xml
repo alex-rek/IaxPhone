@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Регуляторы громкости во время разговора -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingStart="24dp"
+    android:paddingTop="8dp"
+    android:paddingEnd="24dp"
+    android:paddingBottom="24dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="8dp"
+        android:text="@string/volume"
+        android:textAppearance="?attr/textAppearanceTitleLarge"
+        android:textColor="@color/key_text" />
+
+    <TextView
+        android:id="@+id/callVolumeLabel"
+        style="@style/VolumeLabel" />
+
+    <com.google.android.material.slider.Slider
+        android:id="@+id/callVolume"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:contentDescription="@string/volume_call"
+        android:stepSize="1"
+        android:valueFrom="0"
+        android:valueTo="10"
+        app:labelBehavior="gone" />
+
+    <TextView
+        android:id="@+id/speakerLabel"
+        style="@style/VolumeLabel" />
+
+    <com.google.android.material.slider.Slider
+        android:id="@+id/speakerGain"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:contentDescription="@string/audio_speaker_gain"
+        android:stepSize="1"
+        android:valueFrom="-6"
+        android:valueTo="12"
+        app:labelBehavior="gone" />
+
+    <TextView
+        android:id="@+id/micLabel"
+        style="@style/VolumeLabel" />
+
+    <com.google.android.material.slider.Slider
+        android:id="@+id/micGain"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:contentDescription="@string/audio_mic_gain"
+        android:stepSize="1"
+        android:valueFrom="-6"
+        android:valueTo="12"
+        app:labelBehavior="gone" />
+
+    <TextView
+        style="@style/SettingsHint"
+        android:layout_marginTop="4dp"
+        android:text="@string/volume_hint" />
+</LinearLayout>

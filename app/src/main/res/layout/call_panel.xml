@@ -9,11 +9,41 @@
     android:focusable="true"
     android:orientation="vertical">
 
+    <!-- Индикатор записи слева, статистика справа -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="48dp">
+
+        <TextView
+            android:id="@+id/recIndicator"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_vertical|start"
+            android:layout_marginStart="16dp"
+            android:drawablePadding="6dp"
+            android:gravity="center_vertical"
+            android:textColor="@android:color/white"
+            android:textSize="14sp"
+            android:visibility="gone"
+            app:drawableStartCompat="@drawable/ic_record"
+            app:drawableTint="@color/red" />
+
+        <ImageButton
+            android:id="@+id/stats"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_gravity="end"
+            android:layout_marginEnd="4dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/stats"
+            android:src="@drawable/ic_stats"
+            app:tint="#CCFFFFFF" />
+    </FrameLayout>
+
     <TextView
         android:id="@+id/callName"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="48dp"
         android:ellipsize="end"
         android:gravity="center"
         android:maxLines="2"
@@ -35,7 +65,7 @@
         android:id="@+id/callStatus"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
+        android:layout_marginTop="12dp"
         android:gravity="center"
         android:textColor="@android:color/white"
         android:textSize="17sp" />
@@ -44,14 +74,16 @@
         android:id="@+id/dtmfSent"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="4dp"
         android:gravity="center"
         android:letterSpacing="0.1"
         android:minHeight="28dp"
         android:textColor="@android:color/white"
         android:textSize="22sp" />
 
+    <!-- Клавиатура DTMF; уменьшается, если не помещается по высоте -->
     <FrameLayout
+        android:id="@+id/keypadArea"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1">
@@ -61,67 +93,89 @@
             layout="@layout/keypad"
             android:layout_width="360dp"
             android:layout_height="wrap_content"
-            android:layout_gravity="center"
+            android:layout_gravity="bottom|center_horizontal"
             android:visibility="gone" />
     </FrameLayout>
 
-    <!-- Микрофон / клавиатура / динамик -->
+    <!-- Кнопки разговора: два ряда по три -->
     <LinearLayout
         android:id="@+id/inCallControls"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="24dp"
-        android:orientation="horizontal">
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="16dp"
+        android:orientation="vertical">
 
         <LinearLayout
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:gravity="center_horizontal"
-            android:orientation="vertical">
+            android:orientation="horizontal">
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/mute"
-                style="@style/CallControl"
-                android:checkable="true"
-                android:contentDescription="@string/mute"
-                app:icon="@drawable/ic_mic_off" />
+            <LinearLayout style="@style/CallControlCell">
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/mute"
+                    style="@style/CallControl"
+                    android:checkable="true"
+                    android:contentDescription="@string/mute"
+                    app:icon="@drawable/ic_mic_off" />
+                <TextView style="@style/CallControlLabel" android:text="@string/mute" />
+            </LinearLayout>
 
-            <TextView style="@style/CallControlLabel" android:text="@string/mute" />
+            <LinearLayout style="@style/CallControlCell">
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/keypadToggle"
+                    style="@style/CallControl"
+                    android:checkable="true"
+                    android:contentDescription="@string/keypad"
+                    app:icon="@drawable/ic_dialpad" />
+                <TextView style="@style/CallControlLabel" android:text="@string/keypad" />
+            </LinearLayout>
+
+            <LinearLayout style="@style/CallControlCell">
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/speaker"
+                    style="@style/CallControl"
+                    android:checkable="true"
+                    android:contentDescription="@string/speaker"
+                    app:icon="@drawable/ic_speaker" />
+                <TextView style="@style/CallControlLabel" android:text="@string/speaker" />
+            </LinearLayout>
         </LinearLayout>
 
         <LinearLayout
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:gravity="center_horizontal"
-            android:orientation="vertical">
+            android:layout_marginTop="12dp"
+            android:orientation="horizontal">
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/keypadToggle"
-                style="@style/CallControl"
-                android:checkable="true"
-                android:contentDescription="@string/keypad"
-                app:icon="@drawable/ic_dialpad" />
+            <LinearLayout style="@style/CallControlCell">
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/hold"
+                    style="@style/CallControl"
+                    android:checkable="true"
+                    android:contentDescription="@string/hold"
+                    app:icon="@drawable/ic_pause" />
+                <TextView style="@style/CallControlLabel" android:text="@string/hold" />
+            </LinearLayout>
 
-            <TextView style="@style/CallControlLabel" android:text="@string/keypad" />
-        </LinearLayout>
+            <LinearLayout style="@style/CallControlCell">
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/record"
+                    style="@style/CallControl"
+                    android:checkable="true"
+                    android:contentDescription="@string/record"
+                    app:icon="@drawable/ic_record" />
+                <TextView style="@style/CallControlLabel" android:text="@string/record" />
+            </LinearLayout>
 
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:gravity="center_horizontal"
-            android:orientation="vertical">
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/speaker"
-                style="@style/CallControl"
-                android:checkable="true"
-                android:contentDescription="@string/speaker"
-                app:icon="@drawable/ic_speaker" />
-
-            <TextView style="@style/CallControlLabel" android:text="@string/speaker" />
+            <LinearLayout style="@style/CallControlCell">
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/volume"
+                    style="@style/CallControl"
+                    android:contentDescription="@string/volume"
+                    app:icon="@drawable/ic_tune" />
+                <TextView style="@style/CallControlLabel" android:text="@string/volume" />
+            </LinearLayout>
         </LinearLayout>
     </LinearLayout>
 
@@ -129,7 +183,7 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="32dp"
+        android:layout_marginBottom="24dp"
         android:gravity="center"
         android:minHeight="72dp"
         android:orientation="horizontal">

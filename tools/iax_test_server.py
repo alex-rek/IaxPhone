@@ -34,6 +34,8 @@ NEW, PING, PONG, ACK, HANGUP, REJECT, ACCEPT, AUTHREQ, AUTHREP, INVAL = 1, 2, 3,
 LAGRQ, LAGRP, REGREQ, REGAUTH, REGACK, REGREJ, REGREL = 11, 12, 13, 14, 15, 16, 17
 POKE, CALLTOKEN = 30, 40
 C_HANGUP, C_RINGING, C_ANSWER, C_BUSY = 1, 3, 4, 5
+C_HOLD, C_UNHOLD = 16, 17
+IE_RR_JITTER, IE_RR_LOSS, IE_RR_PKTS = 0x2e, 0x2f, 0x30
 NO_ACK_SEQ = {ACK}
 # IE
 IE_CALLED_NUMBER, IE_CALLING_NUMBER, IE_CALLING_NAME, IE_USERNAME = 0x01, 0x02, 0x04, 0x06
@@ -335,7 +337,9 @@ class Server:
                 c.fmt = fmt
                 log(f"** клиент принял вызов, кодек 0x{fmt:x}")
             elif sub == PING:
-                self.send_full(c, IAX, PONG, ts=ts)
+                # Как Asterisk: в PONG — отчёт о приёме голоса клиента (джиттер, потери, пакеты).
+                rr = ie32(IE_RR_JITTER, 5) + ie32(IE_RR_LOSS, (1 << 24) | 2) + ie32(IE_RR_PKTS, c.rx_voice)
+                self.send_full(c, IAX, PONG, rr, ts=ts)
             elif sub == LAGRQ:
                 self.send_full(c, IAX, LAGRP, ts=ts)
             elif sub == PONG and c.kind == "poke":
@@ -346,6 +350,10 @@ class Server:
                 c.mode, c.answered = "echo", True
             elif sub == C_RINGING:
                 log("** у клиента звонит")
+            elif sub == C_HOLD:
+                log(f"** клиент поставил вызов #{c.callno} на удержание")
+            elif sub == C_UNHOLD:
+                log(f"** клиент снял вызов #{c.callno} с удержания")
         elif ftype == VOICE:
             c.fmt = sub
             self.on_voice(c, payload)

@@ -12,6 +12,8 @@ data class CallRecord(
     val answered: Boolean,
     val startMs: Long,
     val durationSec: Long,
+    /** Uri записи разговора, если разговор записывался. */
+    val recording: String? = null,
 ) {
     val missed get() = !outgoing && !answered
 }
@@ -35,6 +37,7 @@ object CallHistory {
                 answered = o.getBoolean("answered"),
                 startMs = o.getLong("start"),
                 durationSec = o.getLong("dur"),
+                recording = o.optString("rec").ifEmpty { null },
             )
         }
     }
@@ -43,13 +46,18 @@ object CallHistory {
 
     fun remove(ctx: Context, r: CallRecord) = save(ctx, all(ctx).filter { it != r })
 
+    /** Привязывает файл записи к звонку, начавшемуся в startMs. */
+    fun setRecording(ctx: Context, startMs: Long, uri: String) =
+        save(ctx, all(ctx).map { if (it.startMs == startMs) it.copy(recording = uri) else it })
+
     fun clear(ctx: Context) = save(ctx, emptyList())
 
     private fun save(ctx: Context, items: List<CallRecord>) {
         val arr = JSONArray()
         items.forEach {
             arr.put(JSONObject().put("number", it.number).put("name", it.name ?: "").put("out", it.outgoing)
-                .put("answered", it.answered).put("start", it.startMs).put("dur", it.durationSec))
+                .put("answered", it.answered).put("start", it.startMs).put("dur", it.durationSec)
+                .put("rec", it.recording ?: ""))
         }
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("items", arr.toString()).apply()
     }

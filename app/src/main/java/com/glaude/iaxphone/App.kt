@@ -9,6 +9,7 @@ class App : Application() {
         super.onCreate()
         ThemePref.apply(ThemePref.get(this))
         AudioPrefs.load(this)
+        TelecomBridge.sync(this)
     }
 }
 

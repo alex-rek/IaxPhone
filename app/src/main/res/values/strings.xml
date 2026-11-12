@@ -16,6 +16,27 @@
     <string name="theme_dark">Тёмная</string>
     <string name="theme_hint">«Как в системе» — тема переключается вместе с настройками Android.</string>
 
+    <!-- Работа в фоне -->
+    <string name="background">Работа в фоне</string>
+    <string name="bg_connect_on_start">Регистрироваться при запуске приложения</string>
+    <string name="bg_start_on_boot">Запускать при включении телефона</string>
+    <string name="bg_keep_awake">Не давать процессору засыпать</string>
+    <string name="bg_keep_awake_hint">Надёжнее приём входящих в режиме сна, но заметно больше расход батареи.</string>
+    <string name="bg_battery">Без ограничений батареи</string>
+    <string name="bg_battery_on">Разрешено: Android не усыпляет приложение</string>
+    <string name="bg_battery_off">Ограничено: в режиме сна регистрация может пропадать</string>
+    <string name="bg_allow">Разрешить</string>
+    <string name="bg_network_hint">При смене сети (Wi-Fi ↔ мобильный интернет) регистрация обновляется сразу.</string>
+
+    <!-- Система вызовов -->
+    <string name="calls">Звонки</string>
+    <string name="telecom">Интеграция с системой вызовов</string>
+    <string name="telecom_hint">Входящие на заблокированном экране, кнопки Bluetooth-гарнитуры и часов, удержание при GSM-звонке. Применяется со следующего звонка.</string>
+    <string name="telecom_unsupported">Это устройство не поддерживает интеграцию с системой вызовов</string>
+    <string name="fullscreen">Входящие поверх экрана блокировки</string>
+    <string name="fullscreen_off">Не разрешено — входящий придёт только уведомлением</string>
+    <string name="fullscreen_on">Разрешено</string>
+
     <!-- Обновления -->
     <string name="updates">Обновления</string>
     <string name="app_version">Версия %1$s</string>
@@ -66,6 +87,9 @@
     <string name="audio_mic_gain">Усиление микрофона</string>
     <string name="audio_speaker_gain_value">Усиление динамика: %1$s</string>
     <string name="audio_mic_gain_value">Усиление микрофона: %1$s</string>
+    <string name="audio_recording">Запись разговоров</string>
+    <string name="audio_auto_record">Записывать все разговоры</string>
+    <string name="audio_recording_hint">Записи сохраняются в папку %1$s и доступны из журнала звонков. Запись вручную — кнопкой «Запись» на экране разговора. Учитывайте законы о записи разговоров: обычно собеседника нужно предупредить.</string>
     <string name="audio_gain_hint">Действует сразу, в том числе во время разговора. Слишком большое усиление может давать хрип.</string>
 
     <!-- Голосовая почта -->
@@ -95,6 +119,19 @@
     <string name="setup">Настроить</string>
     <string name="need_mic">Нужен доступ к микрофону</string>
     <string name="incoming_call">Входящий вызов</string>
+    <string name="hold">Удержание</string>
+    <string name="record">Запись</string>
+    <string name="volume">Громкость</string>
+    <string name="volume_call">Громкость разговора</string>
+    <string name="volume_call_value">Громкость разговора: %1$d из %2$d</string>
+    <string name="volume_hint">Громкость разговора — системная, кнопки громкости телефона меняют её же. Усиление действует сразу.</string>
+    <string name="stats">Статистика</string>
+    <string name="stats_title">Статистика звонка</string>
+    <string name="close">Закрыть</string>
+    <string name="recording_indicator">Запись %1$d:%2$02d</string>
+    <string name="recording_saved">Запись сохранена</string>
+    <string name="state_on_hold">На удержании · %1$d:%2$02d</string>
+    <string name="state_remote_hold">Собеседник поставил вас на удержание · %1$d:%2$02d</string>
 
     <!-- Состояния вызова -->
     <string name="state_dialing">Вызов…</string>
@@ -111,6 +148,9 @@
     <string name="to_dialer">В набор номера</string>
     <string name="add_to_contacts">Добавить в контакты</string>
     <string name="delete">Удалить</string>
+    <string name="play_recording">Прослушать запись</string>
+    <string name="journal_recorded">запись</string>
+    <string name="no_player">Нет приложения для прослушивания WAV</string>
     <string name="clear_journal_q">Очистить журнал звонков?</string>
     <string name="cancel">Отмена</string>
 
@@ -123,6 +163,14 @@
     <string name="save">Сохранить</string>
     <string name="edit">Изменить</string>
     <string name="delete_contact_q">Удалить контакт «%1$s»?</string>
+    <string name="contact_import">Из телефонной книги</string>
+    <string name="import_search">Поиск по имени или номеру</string>
+    <string name="import_add">Добавить (%1$d)</string>
+    <string name="import_done">Добавлено контактов: %1$d</string>
+    <string name="import_exists">уже в контактах</string>
+    <string name="import_empty">В телефонной книге нет контактов с номерами</string>
+    <string name="import_no_permission">Нужен доступ к контактам, чтобы выбрать их из телефонной книги</string>
+    <string name="import_grant">Разрешить</string>
 
     <!-- Уведомления -->
     <string name="channel_status">Состояние подключения</string>

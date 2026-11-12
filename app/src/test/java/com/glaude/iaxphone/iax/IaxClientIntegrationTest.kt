@@ -206,6 +206,51 @@ class IaxClientIntegrationTest {
     }
 
     @Test
+    fun holdStatisticsAndReregister() {
+        val rec = Recorder()
+        val c = client(rec)
+        assertTrue(rec.awaitReg(RegState.REGISTERED))
+        val echo = c.call("600")
+        assertTrue(rec.awaitState(echo, CallState.ACTIVE))
+        sendVoiceFor(c, echo, 3500) // за это время клиент успеет послать PING
+        val st = echo.stats
+        assertTrue("принято пакетов: ${st.rxPackets}", st.rxPackets >= 100)
+        // Эхо-сервер ставит метки по своим часам и иногда пропускает слот — допускаем немного «потерь».
+        assertTrue("потери на локальном сервере: ${st.rxLost}", st.rxLost < st.rxPackets / 10)
+        assertTrue("передано: ${st.txPackets}", st.txPackets >= 150)
+        assertTrue("задержка измерена: ${st.rttMs}", st.rttMs in 0..500)
+        assertTrue("отчёт сервера из PONG: ${st.remotePackets}", st.remotePackets > 0)
+        assertEquals(1, st.remoteLossPct)
+        assertEquals(2L, st.remoteLost)
+
+        // Удержание: сервер получает HOLD, голос не передаётся.
+        c.setHold(echo, true)
+        Thread.sleep(300)
+        assertTrue(echo.onHold)
+        val sent = st.txPackets
+        sendVoiceFor(c, echo, 400)
+        assertEquals("на удержании голос не уходит", sent, st.txPackets)
+        c.setHold(echo, false)
+        Thread.sleep(300)
+        sendVoiceFor(c, echo, 200)
+        assertTrue("после удержания голос снова идёт", st.txPackets > sent)
+        assertTrue(serverLog.any { "на удержание" in it })
+        assertTrue(serverLog.any { "с удержания" in it })
+
+        // Смена сети: немедленная перерегистрация.
+        val regsBefore = serverLog.count { "зарегистрирован с" in it }
+        c.reregister("тест")
+        assertTrue(rec.awaitReg(RegState.REGISTERED))
+        Thread.sleep(200)
+        assertTrue("сервер получил повторную регистрацию", serverLog.count { "зарегистрирован с" in it } > regsBefore)
+        assertEquals("вызов не пострадал", CallState.ACTIVE, echo.state)
+
+        c.hangup(echo)
+        assertTrue(rec.awaitState(echo, CallState.ENDED))
+        c.stop()
+    }
+
+    @Test
     fun voicemailCountersFromRegack() {
         startServer("ulaw,alaw", "--voicemail", "3:17")
         val rec = Recorder()

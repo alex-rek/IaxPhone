@@ -1,7 +1,10 @@
 package com.glaude.iaxphone
 
 import android.Manifest
+import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.media.AudioManager
+import android.net.Uri
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
 import android.graphics.Color
@@ -31,10 +34,12 @@ import com.glaude.iaxphone.databinding.ActivityMainBinding
 import com.glaude.iaxphone.databinding.DialogContactBinding
 import com.glaude.iaxphone.databinding.ItemRowBinding
 import com.glaude.iaxphone.databinding.KeypadBinding
+import com.glaude.iaxphone.databinding.SheetVolumeBinding
 import com.glaude.iaxphone.iax.CallState
 import com.glaude.iaxphone.iax.Codec
 import com.glaude.iaxphone.iax.IaxCall
 import com.glaude.iaxphone.iax.RegState
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
@@ -112,7 +117,7 @@ class MainActivity : AppCompatActivity(), Phone.Observer {
                 if (!isFinishing && !isDestroyed && Phone.call == null) updateUi.showAvailable(info)
             }
         }
-        if (savedInstanceState == null && !Phone.connected && Account.autoConnect(this) && Account.load(this).isComplete) {
+        if (savedInstanceState == null && !Phone.connected && BackgroundPrefs.connectOnStart(this) && Account.load(this).isComplete) {
             SoftphoneService.start(this)
         }
         handleIntent(intent)
@@ -262,8 +267,9 @@ class MainActivity : AppCompatActivity(), Phone.Observer {
         val menu = PopupMenu(this, anchor)
         menu.menu.add(0, 1, 0, R.string.call)
         menu.menu.add(0, 2, 1, R.string.to_dialer)
-        if (Contacts.find(this, r.number) == null) menu.menu.add(0, 3, 2, R.string.add_to_contacts)
-        menu.menu.add(0, 4, 3, R.string.delete)
+        if (r.recording != null) menu.menu.add(0, 5, 2, R.string.play_recording)
+        if (Contacts.find(this, r.number) == null) menu.menu.add(0, 3, 3, R.string.add_to_contacts)
+        menu.menu.add(0, 4, 4, R.string.delete)
         menu.setOnMenuItemClickListener {
             when (it.itemId) {
                 1 -> dial(r.number)
@@ -274,6 +280,11 @@ class MainActivity : AppCompatActivity(), Phone.Observer {
                 }
                 3 -> editContact(Contact(0, r.name.orEmpty(), r.number))
                 4 -> { CallHistory.remove(this, r); refreshLists() }
+                5 -> try {
+                    startActivity(Recordings.playIntent(Uri.parse(r.recording)))
+                } catch (_: ActivityNotFoundException) {
+                    snack(getString(R.string.no_player))
+                }
             }
             true
         }
@@ -310,7 +321,8 @@ class MainActivity : AppCompatActivity(), Phone.Observer {
                 !r.answered -> getString(R.string.journal_not_answered)
                 else -> DateUtils.formatElapsedTime(r.durationSec)
             }
-            row.subtitle.text = if (name != null) "${r.number} · $status" else status
+            val rec = if (r.recording != null) " · ● " + getString(R.string.journal_recorded) else ""
+            row.subtitle.text = (if (name != null) "${r.number} · $status" else status) + rec
             row.meta.text = if (DateUtils.isToday(r.startMs)) timeFmt.format(Date(r.startMs)) else dateFmt.format(Date(r.startMs))
             row.action.setOnClickListener { dial(r.number) }
             return row.root
@@ -323,7 +335,17 @@ class MainActivity : AppCompatActivity(), Phone.Observer {
         val c = b.pageContacts
         c.list.adapter = contactsAdapter
         c.list.emptyView = c.empty
-        c.addContact.setOnClickListener { editContact(Contact(0, "", "")) }
+        c.addContact.setOnClickListener { v ->
+            val menu = PopupMenu(this, v)
+            menu.menu.add(0, 1, 0, R.string.contact_add)
+            menu.menu.add(0, 2, 1, R.string.contact_import)
+            menu.setOnMenuItemClickListener {
+                if (it.itemId == 1) editContact(Contact(0, "", ""))
+                else startActivity(Intent(this, ImportContactsActivity::class.java))
+                true
+            }
+            menu.show()
+        }
         c.list.setOnItemClickListener { _, view, pos, _ -> contactMenu(view, contactsAdapter.getItem(pos)) }
     }
 
@@ -436,8 +458,14 @@ class MainActivity : AppCompatActivity(), Phone.Observer {
         c.answer.setOnClickListener { answerWithPermission() }
         c.mute.setOnClickListener { Phone.toggleMute() }
         c.speaker.setOnClickListener { Phone.toggleSpeaker() }
+        c.hold.setOnClickListener { Phone.toggleHold() }
+        c.record.setOnClickListener { Phone.toggleRecording() }
+        c.volume.setOnClickListener { showVolumeSheet() }
+        c.stats.setOnClickListener { showStats() }
+        c.keypadArea.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> fitCallKeypad() }
         c.keypadToggle.setOnClickListener {
             c.callKeypad.root.visibility = if (c.keypadToggle.isChecked) View.VISIBLE else View.GONE
+            fitCallKeypad()
         }
         val keyBg = ColorStateList.valueOf(0x26FFFFFF)
         forEachKey(c.callKeypad) { key, ch ->
@@ -450,6 +478,109 @@ class MainActivity : AppCompatActivity(), Phone.Observer {
                 c.dtmfSent.text = (c.dtmfSent.text.toString() + ch).takeLast(16)
             }
         }
+    }
+
+    /**
+     * Клавиатура разговора уменьшается, если по высоте не помещается между статусом и кнопками
+     * (на телефонах с невысоким экраном нижний ряд иначе обрезается).
+     */
+    private fun fitCallKeypad() {
+        val area = b.callPanel.keypadArea
+        val kp = b.callPanel.callKeypad.root
+        if (kp.visibility != View.VISIBLE || area.height == 0 || area.width == 0) return
+        val width = (360 * resources.displayMetrics.density).toInt()
+        kp.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY), View.MeasureSpec.UNSPECIFIED)
+        val natural = kp.measuredHeight
+        if (kp.layoutParams.height != natural) {
+            kp.layoutParams.height = natural
+            kp.requestLayout()
+        }
+        val scale = minOf(1f, area.height.toFloat() / natural, area.width.toFloat() / width)
+        kp.pivotX = width / 2f
+        kp.pivotY = natural.toFloat()
+        kp.scaleX = scale
+        kp.scaleY = scale
+    }
+
+    /** Регуляторы громкости во время разговора: системная громкость звонка и усиление. */
+    private fun showVolumeSheet() {
+        val v = SheetVolumeBinding.inflate(layoutInflater)
+        val am = getSystemService(AudioManager::class.java)
+        val stream = AudioManager.STREAM_VOICE_CALL
+        val max = am.getStreamMaxVolume(stream)
+        val min = if (Build.VERSION.SDK_INT >= 28) am.getStreamMinVolume(stream) else 0
+        v.callVolume.valueFrom = min.toFloat()
+        v.callVolume.valueTo = max.toFloat()
+        v.callVolume.value = am.getStreamVolume(stream).coerceIn(min, max).toFloat()
+        v.speakerGain.value = AudioPrefs.speakerDb.toFloat()
+        v.micGain.value = AudioPrefs.micDb.toFloat()
+        fun labels() {
+            v.callVolumeLabel.text = getString(R.string.volume_call_value, v.callVolume.value.toInt(), max)
+            v.speakerLabel.text = getString(R.string.audio_speaker_gain_value, db(AudioPrefs.speakerDb))
+            v.micLabel.text = getString(R.string.audio_mic_gain_value, db(AudioPrefs.micDb))
+        }
+        labels()
+        v.callVolume.addOnChangeListener { _, value, fromUser ->
+            if (fromUser) { try { am.setStreamVolume(stream, value.toInt(), 0) } catch (_: SecurityException) { }; labels() }
+        }
+        v.speakerGain.addOnChangeListener { _, value, fromUser ->
+            if (fromUser) { AudioPrefs.update(this, speakerDb = value.toInt()); labels() }
+        }
+        v.micGain.addOnChangeListener { _, value, fromUser ->
+            if (fromUser) { AudioPrefs.update(this, micDb = value.toInt()); labels() }
+        }
+        BottomSheetDialog(this).apply { setContentView(v.root) }.show()
+    }
+
+    private fun db(v: Int) = (if (v > 0) "+" else "") + v + " дБ"
+
+    /** Статистика звонка, обновляется раз в секунду, пока окно открыто. */
+    private fun showStats() {
+        val call = Phone.call ?: return
+        val pad = (20 * resources.displayMetrics.density).toInt()
+        val text = android.widget.TextView(this).apply {
+            setPadding(pad, pad / 2, pad, 0)
+            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.key_text))
+            textSize = 15f
+            setLineSpacing(0f, 1.25f)
+            typeface = android.graphics.Typeface.MONOSPACE
+        }
+        val dialog = MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.stats_title)
+            .setView(text)
+            .setPositiveButton(R.string.close, null)
+            .show()
+        val refresh = object : Runnable {
+            override fun run() {
+                text.text = statsText(call)
+                if (dialog.isShowing) text.postDelayed(this, 1000)
+            }
+        }
+        refresh.run()
+    }
+
+    private fun statsText(call: IaxCall): String {
+        val s = call.stats
+        fun ms(v: Long) = if (v < 0) "—" else "$v мс"
+        val rows = mutableListOf<Pair<String, String>?>(
+            "Кодек" to (if (call.format != 0L) Codec.name(call.format) else "—"),
+            "Задержка" to ms(s.rttMs),
+            null,
+            "Приём" to "",
+            "  пакетов" to "${s.rxPackets}",
+            "  потеряно" to "${s.rxLost} (%.1f%%)".format(s.rxLossPct),
+            "  не по порядку" to "${s.rxOoo}",
+            "  джиттер" to "%.1f мс".format(s.rxJitterMs),
+            null,
+            "Передача" to "",
+            "  пакетов" to "${s.txPackets}",
+        )
+        // Отчёт сервера о приёме нашего голоса (приходит в PONG, если сервер его шлёт).
+        if (s.remotePackets >= 0) rows += "  дошло" to "${s.remotePackets}"
+        if (s.remoteLossPct >= 0) rows += "  потеряно" to "${s.remoteLost} (${s.remoteLossPct}%)"
+        if (s.remoteJitterMs >= 0) rows += "  джиттер" to "${s.remoteJitterMs} мс"
+        val w = rows.filterNotNull().maxOf { it.first.length } + 2
+        return rows.joinToString("\n") { r -> if (r == null) "" else r.first.padEnd(w) + r.second }
     }
 
     private fun answerWithPermission() {
@@ -517,7 +648,11 @@ class MainActivity : AppCompatActivity(), Phone.Observer {
             CallState.INCOMING -> getString(R.string.state_incoming)
             CallState.ACTIVE -> {
                 val sec = (System.currentTimeMillis() - call.answeredAtMs) / 1000
-                getString(R.string.state_active, sec / 60, sec % 60, Codec.name(call.format))
+                when {
+                    call.onHold -> getString(R.string.state_on_hold, sec / 60, sec % 60)
+                    call.remoteHold -> getString(R.string.state_remote_hold, sec / 60, sec % 60)
+                    else -> getString(R.string.state_active, sec / 60, sec % 60, Codec.name(call.format))
+                }
             }
             CallState.ENDED -> getString(R.string.state_ended, call.endReason ?: "")
         }
@@ -530,6 +665,16 @@ class MainActivity : AppCompatActivity(), Phone.Observer {
         }
         c.mute.isChecked = Phone.muted
         c.speaker.isChecked = Phone.speaker
+        c.hold.isChecked = call.onHold
+        c.record.isChecked = Phone.recording
+        c.stats.visibility = if (state == CallState.ACTIVE || state == CallState.ENDED) View.VISIBLE else View.INVISIBLE
+        if (Phone.recording) {
+            val sec = (System.currentTimeMillis() - Phone.recordingSinceMs) / 1000
+            c.recIndicator.text = getString(R.string.recording_indicator, sec / 60, sec % 60)
+            c.recIndicator.visibility = View.VISIBLE
+        } else {
+            c.recIndicator.visibility = View.GONE
+        }
     }
 
     // ------------------------------------------------------------------ датчик приближения

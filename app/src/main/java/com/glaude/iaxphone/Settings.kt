@@ -38,13 +38,6 @@ data class Account(
             )
         }
 
-        /** Подключаться автоматически при запуске приложения (пользователь не отключался сам). */
-        fun autoConnect(ctx: Context) =
-            ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean("autoConnect", false)
-
-        fun setAutoConnect(ctx: Context, on: Boolean) =
-            ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean("autoConnect", on).apply()
-
         fun save(ctx: Context, a: Account) {
             ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
                 .putString("host", a.host).putInt("port", a.port)

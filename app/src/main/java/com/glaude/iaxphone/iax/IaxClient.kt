@@ -48,8 +48,37 @@ class IaxCall internal constructor(
         internal set
     @Volatile var answeredAtMs: Long = 0
         internal set
+    /** Мы поставили собеседника на удержание. */
+    @Volatile var onHold = false
+        internal set
+    /** Собеседник поставил нас на удержание. */
+    @Volatile var remoteHold = false
+        internal set
+    val stats = CallStats()
 
     override fun toString() = "Call#$callNo($number, $state)"
+}
+
+/** Статистика разговора; обновляется потоком протокола, читается UI. */
+class CallStats {
+    /** Получено голосовых пакетов. */
+    @Volatile var rxPackets = 0L; internal set
+    /** Потеряно входящих пакетов (по разрывам меток времени). */
+    @Volatile var rxLost = 0L; internal set
+    /** Пришли не по порядку. */
+    @Volatile var rxOoo = 0L; internal set
+    /** Джиттер входящего потока, мс (RFC 3550). */
+    @Volatile var rxJitterMs = 0.0; internal set
+    @Volatile var txPackets = 0L; internal set
+    /** Время приёма-передачи PING-PONG, мс; -1 — ещё не измерено. */
+    @Volatile var rttMs = -1L; internal set
+    /** Отчёт сервера о приёме нашего голоса (из PONG); -1 — сервер не сообщал. */
+    @Volatile var remoteJitterMs = -1L; internal set
+    @Volatile var remoteLossPct = -1; internal set
+    @Volatile var remoteLost = -1L; internal set
+    @Volatile var remotePackets = -1L; internal set
+
+    val rxLossPct: Double get() { val all = rxPackets + rxLost; return if (all == 0L) 0.0 else rxLost * 100.0 / all }
 }
 
 interface IaxListener {
@@ -102,6 +131,10 @@ class IaxClient(
         var lastVoiceTs = -1L
         var rxVoiceTs = 0L
         var rxFormat = 0L
+        /** Статистика приёма. */
+        var rxLastTs = -1L
+        var rxLastTransit = Long.MIN_VALUE
+        var lastPingAt = 0L
     }
 
     private val loop: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor { r ->
@@ -192,10 +225,32 @@ class IaxClient(
         sendFull(s, FrameType.DTMF_END, digit.code.toLong())
     }
 
+    /**
+     * Удержание: CONTROL/HOLD (сервер включает собеседнику музыку ожидания) и пауза в передаче голоса.
+     */
+    fun setHold(call: IaxCall, hold: Boolean) = post {
+        val s = sessions[call.callNo] ?: return@post
+        if (call.state != CallState.ACTIVE || call.onHold == hold) return@post
+        call.onHold = hold
+        sendFull(s, FrameType.CONTROL, (if (hold) ControlCmd.HOLD else ControlCmd.UNHOLD).toLong())
+        listener.onCallState(call)
+    }
+
+    /**
+     * Сеть сменилась (Wi-Fi / мобильная) или пора обновить регистрацию: регистрируемся заново сразу,
+     * не дожидаясь таймера, чтобы сервер узнал новый адрес.
+     */
+    fun reregister(reason: String) = post {
+        if (!running || !config.register) return@post
+        log("Перерегистрация: $reason")
+        if (resolveServer()) register(IaxCmd.REGREQ)
+    }
+
     /** Отправляет 20 мс закодированного голоса в формате call.format. */
     fun sendVoice(call: IaxCall, payload: ByteArray) = post {
         val s = sessions[call.callNo] ?: return@post
-        if (call.state != CallState.ACTIVE || s.quelched || call.format == 0L) return@post
+        if (call.state != CallState.ACTIVE || s.quelched || call.onHold || call.format == 0L) return@post
+        call.stats.txPackets++
         var ts = ((clock() - s.start) / 20) * 20
         if (ts <= s.lastVoiceTs) ts = s.lastVoiceTs + 20
         val needFull = !s.txVoiceStarted || s.txFormat != call.format ||
@@ -331,12 +386,13 @@ class IaxClient(
                 }
                 IaxCmd.HANGUP -> { endCall(s, f.ies.str(Ie.CAUSE) ?: "Собеседник положил трубку"); destroy(s) }
                 IaxCmd.REJECT -> { endCall(s, "Отклонён: " + (f.ies.str(Ie.CAUSE) ?: "без причины")); destroy(s) }
-                IaxCmd.PING -> sendFull(s, FrameType.IAX, IaxCmd.PONG.toLong(), ts = f.timestamp)
+                IaxCmd.PING -> sendFull(s, FrameType.IAX, IaxCmd.PONG.toLong(), receiverReport(call), ts = f.timestamp)
                 IaxCmd.LAGRQ -> sendFull(s, FrameType.IAX, IaxCmd.LAGRP.toLong(), ts = f.timestamp)
+                IaxCmd.PONG, IaxCmd.LAGRP -> onPong(s, call, f)
                 IaxCmd.QUELCH -> s.quelched = true
                 IaxCmd.UNQUELCH -> s.quelched = false
                 IaxCmd.TXREQ -> sendFull(s, FrameType.IAX, IaxCmd.TXREJ.toLong())
-                IaxCmd.PONG, IaxCmd.LAGRP, IaxCmd.MWI, IaxCmd.UNSUPPORT -> Unit
+                IaxCmd.MWI, IaxCmd.UNSUPPORT -> Unit
                 else -> sendFull(s, FrameType.IAX, IaxCmd.UNSUPPORT.toLong(),
                     IeBuilder().u8(Ie.IAX_UNKNOWN, f.subclass.toInt()).build())
             }
@@ -352,11 +408,16 @@ class IaxClient(
                 ControlCmd.BUSY -> failCall(s, "Занято", CauseCode.USER_BUSY)
                 ControlCmd.CONGESTION -> failCall(s, "Перегрузка сети")
                 ControlCmd.HANGUP -> { endCall(s, "Собеседник положил трубку"); destroy(s) }
+                ControlCmd.HOLD, ControlCmd.UNHOLD -> {
+                    call.remoteHold = f.subclass.toInt() == ControlCmd.HOLD
+                    listener.onCallState(call)
+                }
                 else -> Unit
             }
             FrameType.VOICE -> {
                 s.rxFormat = f.subclass
                 s.rxVoiceTs = f.timestamp
+                rxStats(s, call, f.timestamp, f.subclass, f.payload.size)
                 listener.onVoice(call, f.timestamp, f.subclass, f.payload)
             }
             FrameType.DTMF_END -> listener.onDtmf(call, f.subclass.toInt().toChar())
@@ -372,7 +433,54 @@ class IaxClient(
         var ts = (s.rxVoiceTs and 0xffff0000L) or m.timestamp.toLong()
         if (ts < s.rxVoiceTs - 0x8000) ts += 0x10000
         if (ts > s.rxVoiceTs) s.rxVoiceTs = ts
+        rxStats(s, call, ts, s.rxFormat, m.payload.size)
         listener.onVoice(call, ts, s.rxFormat, m.payload)
+    }
+
+    // ------------------------------------------------------------------ statistics
+
+    private fun rxStats(s: Session, call: IaxCall, ts: Long, format: Long, size: Int) {
+        val st = call.stats
+        st.rxPackets++
+        val frameMs = Codecs.frameMs(format, size).coerceAtLeast(1)
+        if (s.rxLastTs >= 0) {
+            val gap = ts - s.rxLastTs
+            when {
+                gap <= 0 -> st.rxOoo++
+                gap > frameMs * 3 / 2 && gap < 5000 -> st.rxLost += (gap + frameMs / 2) / frameMs - 1
+            }
+        }
+        if (ts > s.rxLastTs) s.rxLastTs = ts
+        // Джиттер по RFC 3550: сглаженное отклонение интервала прихода от интервала меток.
+        val transit = (clock() - s.start) - ts
+        if (s.rxLastTransit != Long.MIN_VALUE) {
+            val d = kotlin.math.abs(transit - s.rxLastTransit).toDouble()
+            st.rxJitterMs += (d - st.rxJitterMs) / 16.0
+        }
+        s.rxLastTransit = transit
+    }
+
+    private fun onPong(s: Session, call: IaxCall, f: FullFrame) {
+        val rtt = (clock() - s.start) - f.timestamp
+        if (rtt in 0..30_000) call.stats.rttMs = rtt
+        val ies = f.ies
+        ies.u32(Ie.RR_JITTER)?.let { call.stats.remoteJitterMs = it }
+        ies.u32(Ie.RR_LOSS)?.let { call.stats.remoteLossPct = ((it shr 24) and 0xff).toInt(); call.stats.remoteLost = it and 0xffffff }
+        ies.u32(Ie.RR_PKTS)?.let { call.stats.remotePackets = it }
+    }
+
+    /** Наша статистика приёма для PONG (как делает Asterisk). */
+    private fun receiverReport(call: IaxCall): ByteArray {
+        val st = call.stats
+        val pct = st.rxLossPct.toInt().coerceIn(0, 100)
+        return IeBuilder()
+            .u32(Ie.RR_JITTER, st.rxJitterMs.toLong())
+            .u32(Ie.RR_LOSS, (pct.toLong() shl 24) or (st.rxLost and 0xffffff))
+            .u32(Ie.RR_PKTS, st.rxPackets and 0xffffffffL)
+            .u16(Ie.RR_DELAY, 60)
+            .u32(Ie.RR_DROPPED, 0)
+            .u32(Ie.RR_OOO, st.rxOoo and 0xffffffffL)
+            .build()
     }
 
     private fun hangupInternal(s: Session, call: IaxCall, busy: Boolean = false) {
@@ -544,6 +652,11 @@ class IaxClient(
         val now = clock()
         for (s in sessions.values.toList()) {
             if (s.closing && (s.pending.isEmpty() || now - s.closingSince > 6000)) { destroy(s); continue }
+            val call = s.call
+            if (call != null && call.state == CallState.ACTIVE && !s.closing && now - s.lastPingAt >= PING_INTERVAL) {
+                s.lastPingAt = now
+                sendFull(s, FrameType.IAX, IaxCmd.PING.toLong())
+            }
             val p = s.pending.firstOrNull() ?: continue
             if (now - p.sentAt < p.rto) continue
             if (p.retries >= MAX_RETRIES) { onTimeout(s); continue }
@@ -624,6 +737,8 @@ class IaxClient(
         private const val INITIAL_RTO = 500L
         private const val MAX_RTO = 2000L
         private const val MAX_RETRIES = 6
+        /** Как часто измерять задержку во время разговора, мс. */
+        private const val PING_INTERVAL = 3000L
 
         /** Поле MSGCOUNT: (прослушанные shl 8) or новые. Возвращает (новые, прослушанные). */
         fun parseMsgCount(v: Int): Pair<Int, Int> = (v and 0xff) to ((v shr 8) and 0xff)

@@ -63,7 +63,6 @@ class ConnectionActivity : AppCompatActivity(), Phone.Observer {
 
     private fun onConnectClicked() {
         if (Phone.connected) {
-            Account.setAutoConnect(this, false)
             SoftphoneService.stop(this)
             return
         }
@@ -79,7 +78,6 @@ class ConnectionActivity : AppCompatActivity(), Phone.Observer {
             callerId = b.callerId.text.toString().trim(),
         )
         Account.save(this, acc)
-        Account.setAutoConnect(this, true)
         SoftphoneService.start(this)
     }
 

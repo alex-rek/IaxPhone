@@ -86,6 +86,13 @@ object Ie {
     const val MSGCOUNT = 0x18
     const val DATETIME = 0x1f
     const val CAUSECODE = 0x2a
+    /** Статистика приёма (receiver report) в PONG. */
+    const val RR_JITTER = 0x2e
+    const val RR_LOSS = 0x2f
+    const val RR_PKTS = 0x30
+    const val RR_DELAY = 0x31
+    const val RR_DROPPED = 0x32
+    const val RR_OOO = 0x33
     const val CALLTOKEN = 0x36
     const val CAPABILITY2 = 0x37
     const val FORMAT2 = 0x38

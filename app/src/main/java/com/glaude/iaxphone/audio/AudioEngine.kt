@@ -28,6 +28,12 @@ class AudioEngine(context: Context) {
 
     @Volatile private var running = false
     @Volatile var muted = false
+    /** Удержание: микрофон не передаётся, собеседника не слышно. */
+    @Volatile var onHold = false
+    /** Активная запись разговора или null. */
+    @Volatile var recorder: CallRecorder? = null
+    /** Маршрутизацию звука взяла на себя система (Telecom): не трогаем динамик. */
+    @Volatile var routedBySystem = false
     private var txCodec: VoiceCodec? = null
     /** Декодеры по форматам входящего голоса (используются только из потока iax-loop). */
     private val rxCodecs = HashMap<Long, VoiceCodec>()
@@ -46,7 +52,7 @@ class AudioEngine(context: Context) {
         synchronized(rxCodecs) { rxCodecs.clear() }
         running = true
         synchronized(jitter) { jitter.clear(); lastPlayedTs = -1 }
-        audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+        if (!routedBySystem) audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
 
         recordThread = Thread({ recordLoop(onFrame) }, "iax-mic").apply { start() }
         playThread = Thread({ playLoop() }, "iax-spk").apply { start() }
@@ -59,8 +65,9 @@ class AudioEngine(context: Context) {
         playThread?.join(500)
         recordThread = null
         playThread = null
+        recorder = null // файл закрывает Phone
         setSpeaker(false)
-        audioManager.mode = AudioManager.MODE_NORMAL
+        if (!routedBySystem) audioManager.mode = AudioManager.MODE_NORMAL
     }
 
     fun onIncoming(timestamp: Long, format: Long, payload: ByteArray) {
@@ -77,6 +84,7 @@ class AudioEngine(context: Context) {
     }
 
     fun setSpeaker(on: Boolean) {
+        if (routedBySystem) return
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             if (on) {
                 audioManager.availableCommunicationDevices
@@ -122,7 +130,9 @@ class AudioEngine(context: Context) {
                     got += n
                 }
                 if (got < FRAME) continue
-                onFrame(codec.encode(if (muted) silence else AudioPrefs.applyGain(buf, AudioPrefs.micGain)))
+                val out = if (muted || onHold) silence else AudioPrefs.applyGain(buf, AudioPrefs.micGain)
+                recorder?.onTx(out)
+                onFrame(codec.encode(out))
             }
         } catch (e: Exception) {
             Log.e(TAG, "record", e)
@@ -156,11 +166,13 @@ class AudioEngine(context: Context) {
                     if (buffering && jitter.size >= PREFILL_FRAMES) buffering = false
                     if (buffering) null else jitter.pollFirstEntry()?.also { lastPlayedTs = it.key }?.value
                 }
-                if (pcm != null) {
+                if (pcm != null && !onHold) {
                     underruns = 0
+                    recorder?.onRx(pcm)
                     track.write(pcm, 0, pcm.size)
                 } else {
-                    if (!buffering && ++underruns > 5) buffering = true
+                    if (pcm == null && !buffering && ++underruns > 5) buffering = true
+                    recorder?.onRx(silence)
                     track.write(silence, 0, silence.size) // write блокируется и задаёт темп 20 мс
                 }
             }

@@ -78,6 +78,18 @@
                 style="@style/SettingsHint"
                 android:text="@string/audio_proximity_hint" />
 
+            <!-- Запись -->
+            <TextView style="@style/SettingsSection" android:text="@string/audio_recording" />
+
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/autoRecord"
+                style="@style/SettingsSwitch"
+                android:text="@string/audio_auto_record" />
+
+            <TextView
+                android:id="@+id/recordingHint"
+                style="@style/SettingsHint" />
+
             <!-- Громкость -->
             <TextView style="@style/SettingsSection" android:text="@string/audio_volume" />
 

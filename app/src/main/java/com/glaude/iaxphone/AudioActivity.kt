@@ -39,6 +39,8 @@ class AudioActivity : AppCompatActivity() {
         bind(b.noiseSuppress, AudioPrefs.noiseSuppress, NoiseSuppressor.isAvailable()) { AudioPrefs.update(this, noiseSuppress = it) }
         bind(b.autoGain, AudioPrefs.autoGain, AutomaticGainControl.isAvailable()) { AudioPrefs.update(this, autoGain = it) }
         bind(b.proximity, AudioPrefs.proximity) { AudioPrefs.update(this, proximity = it) }
+        bind(b.autoRecord, AudioPrefs.autoRecord) { AudioPrefs.update(this, autoRecord = it) }
+        b.recordingHint.text = getString(R.string.audio_recording_hint, Recordings.folderLabel())
 
         b.speakerGain.value = AudioPrefs.speakerDb.toFloat()
         b.micGain.value = AudioPrefs.micDb.toFloat()
